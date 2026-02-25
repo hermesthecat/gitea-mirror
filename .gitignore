@@ -36,4 +36,4 @@ certs/*.cer
 result
 result-*
 .direnv/
-
+.vexp/

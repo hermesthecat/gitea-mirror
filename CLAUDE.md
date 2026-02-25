@@ -4,102 +4,103 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Gitea Mirror is a self-hosted web application that automatically mirrors repositories from GitHub to Gitea instances. It's built with Astro (SSR mode), React, and runs on the Bun runtime with SQLite for data persistence.
+Gitea Mirror is a self-hosted web application that automatically mirrors repositories from GitHub to Gitea instances. Built with Astro (SSR mode), React, and Bun runtime with SQLite for data persistence.
 
 **Key capabilities:**
 - Mirrors public, private, and starred GitHub repos to Gitea
-- Supports metadata mirroring (issues, PRs as issues, labels, milestones, releases, wiki)
+- Metadata mirroring (issues, PRs as issues, labels, milestones, releases, wiki)
 - Git LFS support
-- Multiple authentication methods (email/password, OIDC/SSO, header auth)
+- Multiple auth methods (email/password, OIDC/SSO, header auth)
 - Scheduled automatic syncing with configurable intervals
 - Auto-discovery of new repos and cleanup of deleted repos
 - Multi-user support with encrypted token storage (AES-256-GCM)
+
+## Quick Reference
+
+| Task                    | Command                                      |
+|-------------------------|----------------------------------------------|
+| Setup                   | `bun run setup`                              |
+| Dev server              | `bun run dev`                                |
+| Build                   | `bun run build`                              |
+| Start production        | `bun run start`                              |
+| Run all tests           | `bun test`                                   |
+| Run single test file    | `bun test src/lib/utils/encryption.test.ts`  |
+| Run tests matching name | `bun test --test-name-pattern "pattern"`     |
+| Test with coverage      | `bun test:coverage`                          |
+| DB migrations           | `bun run db:generate` then `bun run db:migrate` |
+| DB GUI                  | `bun run db:studio`                          |
+| Clean start             | `bun run dev:clean`                          |
 
 ## Development Commands
 
 ### Setup and Installation
 ```bash
-# Install dependencies
-bun install
-
-# Initialize database (first time setup)
-bun run setup
-
-# Clean start (reset database)
-bun run dev:clean
+bun install              # Install dependencies
+bun run setup            # Install deps + init database
+bun run dev:clean        # Reset database and start dev server
 ```
 
 ### Development
 ```bash
-# Start development server (http://localhost:4321)
-bun run dev
-
-# Build for production
-bun run build
-
-# Preview production build
-bun run preview
-
-# Start production server
-bun run start
+bun run dev              # Start dev server (http://localhost:4321)
+bun run build            # Build for production
+bun run preview          # Preview production build
+bun run start            # Start production server
 ```
 
 ### Testing
 ```bash
-# Run all tests
-bun test
-
-# Run tests in watch mode
-bun test:watch
-
-# Run tests with coverage
-bun test:coverage
+bun test                                    # Run all tests
+bun test src/lib/utils/encryption.test.ts   # Run specific test file
+bun test --test-name-pattern "encrypt"      # Run tests matching pattern
+bun test:watch                              # Watch mode
+bun test:coverage                           # With coverage
 ```
 
 **Test configuration:**
-- Test runner: Bun's built-in test runner (configured in `bunfig.toml`)
-- Setup file: `src/tests/setup.bun.ts` (auto-loaded via bunfig.toml)
+- Runner: Bun's built-in test runner (configured in `bunfig.toml`)
+- Setup: `src/tests/setup.bun.ts` (auto-loaded)
 - Timeout: 5000ms default
-- Tests are colocated with source files using `*.test.ts` pattern
+- Pattern: Tests colocated with source as `*.test.ts`
 
 ### Database Management
 ```bash
-# Database operations via Drizzle
-bun run db:generate    # Generate migrations from schema
-bun run db:migrate     # Run migrations
-bun run db:push        # Push schema changes directly
-bun run db:studio      # Open Drizzle Studio (database GUI)
-bun run db:check       # Check schema consistency
+# Drizzle ORM commands
+bun run db:generate      # Generate migrations from schema
+bun run db:migrate       # Run migrations
+bun run db:push          # Push schema changes directly (dev)
+bun run db:studio        # Open Drizzle Studio GUI
+bun run db:check         # Check schema consistency
 
-# Database utilities via custom scripts
-bun run manage-db init       # Initialize database
-bun run manage-db check      # Check database health
-bun run manage-db fix        # Fix database issues
+# Custom scripts
+bun run manage-db init        # Initialize database
+bun run manage-db check       # Check database health
+bun run manage-db fix         # Fix database issues
 bun run manage-db reset-users # Reset all users
-bun run cleanup-db           # Delete database file
+bun run cleanup-db            # Delete database file
 ```
 
 ### Utility Scripts
 ```bash
-# Recovery and diagnostic scripts
 bun run startup-recovery       # Recover from crashes
 bun run startup-recovery-force # Force recovery
 bun run test-recovery          # Test recovery mechanism
 bun run test-shutdown          # Test graceful shutdown
-
-# Environment configuration
 bun run startup-env-config     # Load config from env vars
 ```
 
 ## Architecture
 
 ### Tech Stack
-- **Frontend:** Astro v5 (SSR mode) + React v19 + Shadcn UI + Tailwind CSS v4
-- **Backend:** Astro API routes (Node adapter, standalone mode)
-- **Runtime:** Bun (>=1.2.9)
-- **Database:** SQLite via Drizzle ORM
-- **Authentication:** Better Auth (session-based)
-- **APIs:** GitHub (Octokit with throttling plugin), Gitea REST API
+
+| Layer          | Technology                                    |
+|----------------|-----------------------------------------------|
+| Frontend       | Astro v5 (SSR) + React v19 + Shadcn UI + Tailwind CSS v4 |
+| Backend        | Astro API routes (Node adapter, standalone)   |
+| Runtime        | Bun (>=1.2.9)                                 |
+| Database       | SQLite via Drizzle ORM                        |
+| Authentication | Better Auth (session-based)                   |
+| APIs           | GitHub (Octokit + throttling), Gitea REST API |
 
 ### Directory Structure
 
@@ -230,23 +231,19 @@ scripts/                # Utility scripts
 **Unit tests:**
 - Colocated with source: `filename.test.ts` alongside `filename.ts`
 - Use Bun's built-in assertions and mocking
-- Mock external APIs (GitHub, Gitea) using `src/tests/mock-fetch.ts`
+- Mock external APIs using `src/tests/mock-fetch.ts`
 
 **Integration tests:**
 - Located in `src/tests/`
 - Test database operations with in-memory SQLite
-- Example: `src/lib/db/index.test.ts`
 
 **Test utilities:**
-- `src/tests/setup.bun.ts` - Global test setup (loaded via bunfig.toml)
+- `src/tests/setup.bun.ts` - Global test setup
 - `src/tests/mock-fetch.ts` - Fetch mocking utilities
 
 ### Important Development Notes
 
 1. **Path Aliases:** Use `@/` for imports (configured in `tsconfig.json`)
-   ```typescript
-   import { db } from '@/lib/db';
-   ```
 
 2. **Token Encryption:** Always use encryption helpers when dealing with tokens:
    ```typescript
@@ -261,21 +258,19 @@ scripts/                # Utility scripts
 
 4. **Database Migrations:**
    - Schema changes: Update `src/lib/db/schema.ts`
-   - Generate migration: `bun run db:generate`
-   - Review generated SQL in `drizzle/` directory
+   - Generate: `bun run db:generate`
+   - Review SQL in `drizzle/` directory
    - Apply: `bun run db:migrate` (or `db:push` for dev)
 
 5. **Concurrency Control:**
    - Use utilities from `src/lib/utils/concurrency.ts` for batch operations
-   - Respect rate limits (GitHub: 5000 req/hr authenticated, Gitea: varies)
+   - Respect rate limits (GitHub: 5000 req/hr authenticated)
    - Issue/PR mirroring is sequential to maintain chronological order
 
-6. **Duration Parsing:**
-   - Use `parseInterval()` from `src/lib/utils/duration-parser.ts`
+6. **Duration Parsing:** Use `parseInterval()` from `src/lib/utils/duration-parser.ts`
    - Supports: "30m", "8h", "24h", "7d", cron expressions, or milliseconds
 
-7. **Graceful Shutdown:**
-   - Services implement cleanup handlers (see `src/lib/shutdown-manager.ts`)
+7. **Graceful Shutdown:** Services implement cleanup handlers (see `src/lib/shutdown-manager.ts`)
    - Recovery system in `src/lib/recovery.ts` handles interrupted jobs
 
 ## Common Development Workflows
@@ -315,3 +310,36 @@ scripts/                # Utility scripts
 - **SSO Setup:** See `docs/SSO-OIDC-SETUP.md`
 - **Contributing:** See `CONTRIBUTING.md` for code guidelines and scope
 - **Graceful Shutdown:** See `docs/GRACEFUL_SHUTDOWN.md` for crash recovery details
+
+## Coding Style & Conventions
+
+### Naming
+- **Components:** PascalCase `.tsx` in `src/components/` (e.g., `MainLayout.tsx`)
+- **Modules/utils:** kebab-case in `src/lib/` (e.g., `gitea-enhanced.ts`)
+- **Variables/functions:** camelCase
+
+### Imports
+Always use the `@/` path alias (configured in `tsconfig.json`):
+```typescript
+import { db } from '@/lib/db';
+import { getDecryptedGitHubToken } from '@/lib/utils/config-encryption';
+```
+
+### Code Style
+- 2 spaces indentation
+- Follow existing semicolon/quote style in touched files
+- Do not introduce new lint/format configs
+
+### Commit Messages
+Use short, imperative, scoped messages:
+```
+lib: fix token parsing
+ui: align buttons
+feat: add metadata mirroring option
+```
+
+### Pull Requests
+- Include summary, rationale, and testing steps
+- Link issues (e.g., `Closes #123`)
+- Add screenshots for UI changes
+- Note DB/migration or .env impacts
