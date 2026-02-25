@@ -3,8 +3,9 @@ import { db, repositories, mirrorJobs, configs } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { createSecureErrorResponse } from "@/lib/utils";
 import { requireAuth } from "@/lib/utils/auth-helpers";
-import { deleteGiteaRepo, createGiteaClient, getGiteaRepoOwnerAsync } from "@/lib/gitea";
-import { getDecryptedGiteaToken } from "@/lib/utils/config-encryption";
+import { deleteGiteaRepo, createGiteaClient } from "@/lib/gitea";
+import { getDecryptedGiteaToken, getDecryptedGitHubToken } from "@/lib/utils/config-encryption";
+import { Octokit } from "@octokit/rest";
 
 export const PATCH: APIRoute = async (context) => {
   try {
@@ -73,6 +74,7 @@ export const DELETE: APIRoute = async (context) => {
     const repoId = context.params.id;
     const url = new URL(context.request.url);
     const deleteFromGitea = url.searchParams.get("deleteFromGitea") === "true";
+    const deleteFromGitHub = url.searchParams.get("deleteFromGitHub") === "true";
 
     if (!repoId) {
       return new Response(JSON.stringify({ error: "Repository ID is required" }), {
@@ -97,14 +99,48 @@ export const DELETE: APIRoute = async (context) => {
       );
     }
 
+    const [config] = await db
+      .select()
+      .from(configs)
+      .where(eq(configs.userId, userId))
+      .limit(1);
+
+    // Delete from GitHub if requested
+    if (deleteFromGitHub && existingRepo.fullName) {
+      if (!config?.githubConfig?.token) {
+        return new Response(
+          JSON.stringify({ error: "GitHub token not configured" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      try {
+        const githubToken = getDecryptedGitHubToken(config);
+        const octokit = new Octokit({ auth: githubToken });
+        const [owner, repo] = existingRepo.fullName.split("/");
+
+        if (owner && repo) {
+          await octokit.repos.delete({ owner, repo });
+        }
+      } catch (githubError: any) {
+        console.error(`Failed to delete repo from GitHub: ${githubError}`);
+        return new Response(
+          JSON.stringify({
+            error: `Failed to delete from GitHub: ${githubError?.message || "Unknown error"}`
+          }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
     // Delete from Gitea if requested
     if (deleteFromGitea && existingRepo.mirroredLocation) {
-      const [config] = await db
-        .select()
-        .from(configs)
-        .where(eq(configs.userId, userId))
-        .limit(1);
-
       if (config?.giteaConfig) {
         try {
           const giteaToken = getDecryptedGiteaToken(config);

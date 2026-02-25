@@ -90,6 +90,9 @@ export default function Repository() {
   const [isDeleteFromGiteaDialogOpen, setIsDeleteFromGiteaDialogOpen] = useState(false);
   const [isDeletingFromGitea, setIsDeletingFromGitea] = useState(false);
   const [repoToDeleteFromGitea, setRepoToDeleteFromGitea] = useState<Repository | null>(null);
+  const [isDeleteFromBothDialogOpen, setIsDeleteFromBothDialogOpen] = useState(false);
+  const [isDeletingFromBoth, setIsDeletingFromBoth] = useState(false);
+  const [repoToDeleteFromBoth, setRepoToDeleteFromBoth] = useState<Repository | null>(null);
 
   // Create a stable callback using useCallback
   const handleNewMessage = useCallback((data: MirrorJob) => {
@@ -893,6 +896,45 @@ export default function Repository() {
     }
   };
 
+  const handleRequestDeleteFromBoth = (repoId: string) => {
+    const repo = repositories.find((item) => item.id === repoId);
+    if (!repo) {
+      toast.error("Repository not found");
+      return;
+    }
+    setRepoToDeleteFromBoth(repo);
+    setIsDeleteFromBothDialogOpen(true);
+  };
+
+  const handleDeleteFromBoth = async () => {
+    if (!user || !user.id || !repoToDeleteFromBoth) {
+      return;
+    }
+
+    setIsDeletingFromBoth(true);
+    try {
+      const response = await apiRequest<{ success: boolean; error?: string }>(
+        `/repositories/${repoToDeleteFromBoth.id}?deleteFromGitea=true&deleteFromGitHub=true`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.success) {
+        toast.success(`Deleted ${repoToDeleteFromBoth.fullName} from GitHub, Gitea and Gitea Mirror.`);
+        await fetchRepositories(false);
+      } else {
+        showErrorToast(response.error || "Failed to delete repository", toast);
+      }
+    } catch (error) {
+      showErrorToast(error, toast);
+    } finally {
+      setIsDeletingFromBoth(false);
+      setIsDeleteFromBothDialogOpen(false);
+      setRepoToDeleteFromBoth(null);
+    }
+  };
+
   // Determine what actions are available for selected repositories
   const getAvailableActions = () => {
     if (selectedRepoIds.size === 0) return [];
@@ -1449,6 +1491,7 @@ export default function Repository() {
           }}
           onDelete={handleRequestDeleteRepository}
           onDeleteFromGitea={handleRequestDeleteFromGitea}
+          onDeleteFromBoth={handleRequestDeleteFromBoth}
         />
       )}
 
@@ -1563,6 +1606,47 @@ export default function Repository() {
                 <span className="flex items-center gap-2">
                   <Trash2 className="h-4 w-4" />
                   Delete from Gitea
+                </span>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isDeleteFromBothDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsDeleteFromBothDialogOpen(false);
+            setRepoToDeleteFromBoth(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete repository from GitHub and Gitea?</DialogTitle>
+            <DialogDescription>
+              {repoToDeleteFromBoth?.fullName ?? "This repository"} will be permanently deleted from GitHub, Gitea and Gitea Mirror. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteFromBothDialogOpen(false);
+                setRepoToDeleteFromBoth(null);
+              }}
+              disabled={isDeletingFromBoth}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteFromBoth} disabled={isDeletingFromBoth}>
+              {isDeletingFromBoth ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Delete from Both
                 </span>
               )}
             </Button>

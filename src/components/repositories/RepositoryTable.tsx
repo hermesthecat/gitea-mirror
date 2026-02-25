@@ -43,6 +43,7 @@ interface RepositoryTableProps {
   onRefresh?: () => Promise<void>;
   onDelete?: (repoId: string) => void;
   onDeleteFromGitea?: (repoId: string) => void;
+  onDeleteFromBoth?: (repoId: string) => void;
 }
 
 export default function RepositoryTable({
@@ -61,6 +62,7 @@ export default function RepositoryTable({
   onRefresh,
   onDelete,
   onDeleteFromGitea,
+  onDeleteFromBoth,
 }: RepositoryTableProps) {
   const tableParentRef = useRef<HTMLDivElement>(null);
   const { giteaConfig } = useGiteaConfig();
@@ -683,6 +685,7 @@ export default function RepositoryTable({
                           onSkip={(skip) => onSkip({ repoId: repo.id ?? "", skip })}
                           onDelete={onDelete && repo.id ? () => onDelete(repo.id as string) : undefined}
                           onDeleteFromGitea={onDeleteFromGitea && repo.id ? () => onDeleteFromGitea(repo.id as string) : undefined}
+                          onDeleteFromBoth={onDeleteFromBoth && repo.id ? () => onDeleteFromBoth(repo.id as string) : undefined}
                         />
                       </div>
                       {/* Links */}
@@ -795,6 +798,7 @@ function RepoActionButton({
   onSkip,
   onDelete,
   onDeleteFromGitea,
+  onDeleteFromBoth,
 }: {
   repo: { id: string; status: string; mirroredLocation?: string | null };
   isLoading: boolean;
@@ -804,6 +808,7 @@ function RepoActionButton({
   onSkip: (skip: boolean) => void;
   onDelete?: () => void;
   onDeleteFromGitea?: () => void;
+  onDeleteFromBoth?: () => void;
 }) {
   // For ignored repos, show an "Include" action
   if (repo.status === "ignored") {
@@ -916,6 +921,15 @@ function RepoActionButton({
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Delete from Gitea
+          </DropdownMenuItem>
+        )}
+        {onDeleteFromBoth && (
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={onDeleteFromBoth}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete from Gitea & GitHub
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
