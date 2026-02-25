@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, RefreshCw, FlipHorizontal, RotateCcw, X, Filter, Ban, Check, LoaderCircle, Trash2 } from "lucide-react";
+import { Search, RefreshCw, FlipHorizontal, RotateCcw, X, Filter, Ban, Check, LoaderCircle, Trash2, ChevronDown } from "lucide-react";
 import type { MirrorRepoRequest, MirrorRepoResponse } from "@/types/mirror";
 import {
   Drawer,
@@ -46,6 +46,13 @@ import { OwnerCombobox, OrganizationCombobox } from "./RepositoryComboboxes";
 import type { RetryRepoRequest, RetryRepoResponse } from "@/types/retry";
 import type { ResetMetadataRequest, ResetMetadataResponse } from "@/types/reset-metadata";
 import AddRepositoryDialog from "./AddRepositoryDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { useConfigStatus } from "@/hooks/useConfigStatus";
@@ -564,6 +571,114 @@ export default function Repository() {
     }
   };
 
+  // Bulk delete handlers
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isBulkDeleteFromGiteaDialogOpen, setIsBulkDeleteFromGiteaDialogOpen] = useState(false);
+  const [isBulkDeleteFromBothDialogOpen, setIsBulkDeleteFromBothDialogOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const handleBulkDelete = async () => {
+    if (selectedRepoIds.size === 0) return;
+    
+    setIsBulkDeleting(true);
+    const repoIds = Array.from(selectedRepoIds);
+    let successCount = 0;
+
+    try {
+      for (const repoId of repoIds) {
+        try {
+          const response = await apiRequest<{ success: boolean; error?: string }>(
+            `/repositories/${repoId}`,
+            { method: "DELETE" }
+          );
+          if (response.success) successCount++;
+        } catch (e) {
+          console.error(`Failed to delete repo ${repoId}:`, e);
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Deleted ${successCount} repositories from Mirror`);
+        await fetchRepositories(false);
+        setSelectedRepoIds(new Set());
+      }
+      if (successCount < repoIds.length) {
+        toast.error(`Failed to delete ${repoIds.length - successCount} repositories`);
+      }
+    } finally {
+      setIsBulkDeleting(false);
+      setIsBulkDeleteDialogOpen(false);
+    }
+  };
+
+  const handleBulkDeleteFromGitea = async () => {
+    if (selectedRepoIds.size === 0) return;
+    
+    setIsBulkDeleting(true);
+    const selectedRepos = repositories.filter(repo => repo.id && selectedRepoIds.has(repo.id) && repo.mirroredLocation);
+    let successCount = 0;
+
+    try {
+      for (const repo of selectedRepos) {
+        try {
+          const response = await apiRequest<{ success: boolean; error?: string }>(
+            `/repositories/${repo.id}?deleteFromGitea=true`,
+            { method: "DELETE" }
+          );
+          if (response.success) successCount++;
+        } catch (e) {
+          console.error(`Failed to delete repo ${repo.id} from Gitea:`, e);
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Deleted ${successCount} repositories from Gitea`);
+        await fetchRepositories(false);
+        setSelectedRepoIds(new Set());
+      }
+      if (successCount < selectedRepos.length) {
+        toast.error(`Failed to delete ${selectedRepos.length - successCount} repositories`);
+      }
+    } finally {
+      setIsBulkDeleting(false);
+      setIsBulkDeleteFromGiteaDialogOpen(false);
+    }
+  };
+
+  const handleBulkDeleteFromBoth = async () => {
+    if (selectedRepoIds.size === 0) return;
+    
+    setIsBulkDeleting(true);
+    const repoIds = Array.from(selectedRepoIds);
+    let successCount = 0;
+
+    try {
+      for (const repoId of repoIds) {
+        try {
+          const response = await apiRequest<{ success: boolean; error?: string }>(
+            `/repositories/${repoId}?deleteFromGitea=true&deleteFromGitHub=true`,
+            { method: "DELETE" }
+          );
+          if (response.success) successCount++;
+        } catch (e) {
+          console.error(`Failed to delete repo ${repoId} from both:`, e);
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Deleted ${successCount} repositories from GitHub & Gitea`);
+        await fetchRepositories(false);
+        setSelectedRepoIds(new Set());
+      }
+      if (successCount < repoIds.length) {
+        toast.error(`Failed to delete ${repoIds.length - successCount} repositories`);
+      }
+    } finally {
+      setIsBulkDeleting(false);
+      setIsBulkDeleteFromBothDialogOpen(false);
+    }
+  };
+
   const handleSyncRepo = async ({ repoId }: { repoId: string }) => {
     try {
       if (!user || !user.id) {
@@ -971,6 +1086,17 @@ export default function Repository() {
     if (selectedRepos.some(repo => repo.status === "ignored")) {
       actions.push('include');
     }
+
+    // Delete actions - always available when repos are selected
+    actions.push('delete');
+    
+    // Delete from Gitea - only for mirrored repos
+    if (selectedRepos.some(repo => repo.mirroredLocation)) {
+      actions.push('deleteFromGitea');
+    }
+    
+    // Delete from both - always available
+    actions.push('deleteFromBoth');
     
     return actions;
   };
@@ -988,6 +1114,9 @@ export default function Repository() {
       retry: selectedRepos.filter(repo => repo.status === "failed").length,
       ignore: selectedRepos.filter(repo => repo.status !== "ignored").length,
       include: selectedRepos.filter(repo => repo.status === "ignored").length,
+      delete: selectedRepos.length,
+      deleteFromGitea: selectedRepos.filter(repo => repo.mirroredLocation).length,
+      deleteFromBoth: selectedRepos.length,
     };
   };
   
@@ -1356,6 +1485,43 @@ export default function Repository() {
                     Include
                   </Button>
                 )}
+
+                {/* Delete dropdown for bulk actions */}
+                {selectedRepoIds.size > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="default"
+                        disabled={loadingRepoIds.size > 0 || isBulkDeleting}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setIsBulkDeleteDialogOpen(true)}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete from Mirror ({actionCounts.delete})
+                      </DropdownMenuItem>
+                      {availableActions.includes('deleteFromGitea') && (
+                        <DropdownMenuItem onClick={() => setIsBulkDeleteFromGiteaDialogOpen(true)}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete from Gitea ({actionCounts.deleteFromGitea})
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setIsBulkDeleteFromBothDialogOpen(true)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete from Gitea & GitHub ({actionCounts.deleteFromBoth})
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </>
             )}
           </div>
@@ -1649,6 +1815,64 @@ export default function Repository() {
                   Delete from Both
                 </span>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Dialogs */}
+      <Dialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedRepoIds.size} repositories from Mirror?</DialogTitle>
+            <DialogDescription>
+              These repositories will be removed from Gitea Mirror only. The mirrors on Gitea will remain untouched.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkDeleteDialogOpen(false)} disabled={isBulkDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={isBulkDeleting}>
+              {isBulkDeleting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : `Delete ${selectedRepoIds.size} repos`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBulkDeleteFromGiteaDialogOpen} onOpenChange={setIsBulkDeleteFromGiteaDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {actionCounts.deleteFromGitea} repositories from Gitea?</DialogTitle>
+            <DialogDescription>
+              These repositories will be permanently deleted from both Gitea and Gitea Mirror. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkDeleteFromGiteaDialogOpen(false)} disabled={isBulkDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDeleteFromGitea} disabled={isBulkDeleting}>
+              {isBulkDeleting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : `Delete ${actionCounts.deleteFromGitea} repos`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBulkDeleteFromBothDialogOpen} onOpenChange={setIsBulkDeleteFromBothDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedRepoIds.size} repositories from GitHub & Gitea?</DialogTitle>
+            <DialogDescription>
+              These repositories will be permanently deleted from GitHub, Gitea and Gitea Mirror. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkDeleteFromBothDialogOpen(false)} disabled={isBulkDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDeleteFromBoth} disabled={isBulkDeleting}>
+              {isBulkDeleting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : `Delete ${selectedRepoIds.size} repos`}
             </Button>
           </DialogFooter>
         </DialogContent>
