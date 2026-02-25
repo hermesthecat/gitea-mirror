@@ -340,6 +340,11 @@ export async function syncGiteaRepoEnhanced({
         updatePayload.default_branch = repository.defaultBranch;
       }
 
+      // Always enable releases feature if mirrorReleases is enabled
+      if (config.giteaConfig?.mirrorReleases) {
+        updatePayload.has_releases = true;
+      }
+
       if (Object.keys(updatePayload).length > 0) {
         console.log(`[Sync] Updating Gitea repo metadata for ${repository.name}`);
         await httpPatch(updateUrl, updatePayload, {

@@ -581,6 +581,7 @@ export const mirrorGithubRepoToGitea = async ({
       repo_owner: repoOwner,
       description: repository.description?.trim() || "",
       service: "git",
+      releases: true, // Enable releases feature on the Gitea repo
     };
 
     // Add authentication for private repositories
@@ -1137,6 +1138,7 @@ export async function mirrorGitHubRepoToGiteaOrg({
       wiki: shouldMirrorWiki || false,
       lfs: config.giteaConfig?.lfs || false,
       private: repository.isPrivate,
+      releases: true, // Enable releases feature on the Gitea repo
     };
 
     // Add authentication for private repositories
