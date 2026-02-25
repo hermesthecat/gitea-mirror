@@ -78,6 +78,7 @@ bun run manage-db check       # Check database health
 bun run manage-db fix         # Fix database issues
 bun run manage-db reset-users # Reset all users
 bun run cleanup-db            # Delete database file
+bun run reset-password -- --email=user@example.com --new-password='newpass'  # Reset user password
 ```
 
 ### Utility Scripts
@@ -302,6 +303,11 @@ scripts/                # Utility scripts
   - `docker-compose.alt.yml` - Quick start (pre-built image, minimal config)
   - `docker-compose.yml` - Full setup (build from source, all env vars)
   - `docker-compose.dev.yml` - Development with hot reload
+
+## Alternative Deployments
+
+- **Nix/NixOS:** Zero-config deployment via `nix run github:hermesthecat/gitea-mirror`. See `NIX.md` and `docs/NIX_DEPLOYMENT.md`
+- **Proxmox LXC:** One-line install script available via community-scripts
 
 ## Additional Resources
 
