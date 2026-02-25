@@ -112,7 +112,7 @@ docker compose up -d
 #### Using Pre-built Image Directly
 
 ```bash
-docker pull ghcr.io/hermesthecat/gitea-mirror:v3.1.1
+docker pull ghcr.io/hermesthecat/gitea-mirror:latest
 ```
 
 ### Configuration Options
