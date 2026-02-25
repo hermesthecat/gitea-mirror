@@ -164,6 +164,29 @@ export const POST: APIRoute = async ({ request, locals }) => {
           .where(eq(repositories.normalizedFullName, repo.normalizedFullName));
       }
 
+      // Handle unstarred repos: repos that exist in DB but are no longer in GitHub's response
+      // This covers repos that were starred but user removed the star
+      const githubRepoNames = new Set(newRepos.map((r) => r.normalizedFullName));
+      const reposNoLongerInGitHub = Array.from(existingRepoNames).filter(
+        (name) => !githubRepoNames.has(name)
+      );
+      
+      if (reposNoLongerInGitHub.length > 0) {
+        // For repos no longer in GitHub response, set isStarred to false
+        // This handles: starred repo that was unstarred, or repo that was deleted from GitHub
+        // The cleanup service will handle actual deletion based on user's cleanup settings
+        for (const repoName of reposNoLongerInGitHub) {
+          await tx
+            .update(repositories)
+            .set({
+              isStarred: false,
+              updatedAt: new Date(),
+            })
+            .where(eq(repositories.normalizedFullName, repoName));
+        }
+        console.log(`[Sync] Marked ${reposNoLongerInGitHub.length} repos as unstarred (no longer in GitHub response)`);
+      }
+
       // Batch insert organizations (they have fewer fields, so we can use larger batches)
       const ORG_BATCH_SIZE = 100;
       if (insertedOrgs.length > 0) {
