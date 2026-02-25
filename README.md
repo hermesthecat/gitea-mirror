@@ -3,10 +3,10 @@
   <h1>Gitea Mirror</h1>
   <p><i>Automatically mirror repositories from GitHub to your self-hosted Gitea instance.</i></p>
   <p align="center">
-    <a href="https://github.com/RayLabsHQ/gitea-mirror/releases/latest"><img src="https://img.shields.io/github/v/tag/RayLabsHQ/gitea-mirror?label=release" alt="release"/></a>
-    <a href="https://github.com/RayLabsHQ/gitea-mirror/actions/workflows/astro-build-test.yml"><img src="https://img.shields.io/github/actions/workflow/status/RayLabsHQ/gitea-mirror/astro-build-test.yml?branch=main" alt="build"/></a>
-    <a href="https://github.com/RayLabsHQ/gitea-mirror/pkgs/container/gitea-mirror"><img src="https://img.shields.io/badge/ghcr.io-container-blue?logo=github" alt="container"/></a>
-    <a href="https://github.com/RayLabsHQ/gitea-mirror/blob/main/LICENSE"><img src="https://img.shields.io/github/license/RayLabsHQ/gitea-mirror" alt="license"/></a>
+    <a href="https://github.com/hermesthecat/gitea-mirror/releases/latest"><img src="https://img.shields.io/github/v/tag/hermesthecat/gitea-mirror?label=release" alt="release"/></a>
+    <a href="https://github.com/hermesthecat/gitea-mirror/actions/workflows/astro-build-test.yml"><img src="https://img.shields.io/github/actions/workflow/status/hermesthecat/gitea-mirror/astro-build-test.yml?branch=main" alt="build"/></a>
+    <a href="https://github.com/hermesthecat/gitea-mirror/pkgs/container/gitea-mirror"><img src="https://img.shields.io/badge/ghcr.io-container-blue?logo=github" alt="container"/></a>
+    <a href="https://github.com/hermesthecat/gitea-mirror/blob/main/LICENSE"><img src="https://img.shields.io/github/license/hermesthecat/gitea-mirror" alt="license"/></a>
   </p>
 </p>
 
@@ -66,7 +66,7 @@ Perfect for trying out Gitea Mirror or simple deployments:
 
 ```bash
 # Clone repository
-git clone https://github.com/RayLabsHQ/gitea-mirror.git
+git clone https://github.com/hermesthecat/gitea-mirror.git
 cd gitea-mirror
 
 # Start with simplified setup
@@ -112,7 +112,7 @@ docker compose up -d
 #### Using Pre-built Image Directly
 
 ```bash
-docker pull ghcr.io/raylabshq/gitea-mirror:v3.1.1
+docker pull ghcr.io/hermesthecat/gitea-mirror:v3.1.1
 ```
 
 ### Configuration Options
@@ -156,21 +156,21 @@ Zero-configuration deployment with Nix:
 
 ```bash
 # Run immediately - no setup needed!
-nix run --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix run --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 
 # Or build and run locally
 nix build --extra-experimental-features 'nix-command flakes'
 ./result/bin/gitea-mirror
 
 # Or install to profile
-nix profile install --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix profile install --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 gitea-mirror
 ```
 
 **NixOS users** - add to your configuration:
 ```nix
 {
-  inputs.gitea-mirror.url = "github:RayLabsHQ/gitea-mirror";
+  inputs.gitea-mirror.url = "github:hermesthecat/gitea-mirror";
 
   services.gitea-mirror = {
     enable = true;
@@ -299,7 +299,7 @@ CLEANUP_DRY_RUN=false                 # Set to true to test without changes
 
 ### Reverse Proxy Configuration
 
-If using a reverse proxy (e.g., nginx proxy manager) and experiencing issues with JavaScript files not loading properly, try enabling HTTP/2 support in your proxy configuration. While not required by the application, some proxy configurations may have better compatibility with HTTP/2 enabled. See [issue #43](https://github.com/RayLabsHQ/gitea-mirror/issues/43) for reference.
+If using a reverse proxy (e.g., nginx proxy manager) and experiencing issues with JavaScript files not loading properly, try enabling HTTP/2 support in your proxy configuration. While not required by the application, some proxy configurations may have better compatibility with HTTP/2 enabled. See [issue #43](https://github.com/hermesthecat/gitea-mirror/issues/43) for reference.
 
 ### Mirror Token Rotation (GitHub Token Changed)
 
@@ -408,7 +408,7 @@ Enable users to sign in with external identity providers like Google, Azure AD, 
 https://your-domain.com/api/auth/sso/callback/{provider-id}
 ```
 
-Need help? The [SSO & OIDC guide](docs/SSO-OIDC-SETUP.md) now includes a working Authentik walkthrough plus troubleshooting tips. If you upgraded from a version earlier than v3.8.10 and see `TypeError … url.startsWith` after the callback, delete the old provider and add it again using the Discover button (see [#73](https://github.com/RayLabsHQ/gitea-mirror/issues/73) and [#122](https://github.com/RayLabsHQ/gitea-mirror/issues/122)).
+Need help? The [SSO & OIDC guide](docs/SSO-OIDC-SETUP.md) now includes a working Authentik walkthrough plus troubleshooting tips. If you upgraded from a version earlier than v3.8.10 and see `TypeError … url.startsWith` after the callback, delete the old provider and add it again using the Discover button (see [#73](https://github.com/hermesthecat/gitea-mirror/issues/73) and [#122](https://github.com/hermesthecat/gitea-mirror/issues/122)).
 
 ### 3. Header Authentication (Reverse Proxy)
 Perfect for automatic authentication when using reverse proxies like Authentik, Authelia, or Traefik Forward Auth.
@@ -487,18 +487,18 @@ GNU General Public License v3.0 - see [LICENSE](LICENSE) file for details.
 
 ## Star History
 
-<a href="https://www.star-history.com/#RayLabsHQ/gitea-mirror&type=date&legend=bottom-right">
+<a href="https://www.star-history.com/#hermesthecat/gitea-mirror&type=date&legend=bottom-right">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=RayLabsHQ/gitea-mirror&type=date&theme=dark&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=RayLabsHQ/gitea-mirror&type=date&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=RayLabsHQ/gitea-mirror&type=date&legend=bottom-right" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=hermesthecat/gitea-mirror&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=hermesthecat/gitea-mirror&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=hermesthecat/gitea-mirror&type=date&legend=bottom-right" />
  </picture>
 </a>
 
 ## Support
 
-- 📖 [Documentation](https://github.com/RayLabsHQ/gitea-mirror/tree/main/docs)
+- 📖 [Documentation](https://github.com/hermesthecat/gitea-mirror/tree/main/docs)
 - 🔐 [Custom CA Certificates](docs/CA_CERTIFICATES.md)
-- 🐛 [Report Issues](https://github.com/RayLabsHQ/gitea-mirror/issues)
-- 💬 [Discussions](https://github.com/RayLabsHQ/gitea-mirror/discussions)
+- 🐛 [Report Issues](https://github.com/hermesthecat/gitea-mirror/issues)
+- 💬 [Discussions](https://github.com/hermesthecat/gitea-mirror/discussions)
 - 🔧 [Proxmox VE Script](https://community-scripts.github.io/ProxmoxVE/scripts?id=gitea-mirror)
