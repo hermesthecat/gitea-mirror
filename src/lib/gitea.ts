@@ -604,6 +604,21 @@ export const mirrorGithubRepoToGitea = async ({
       }
     );
 
+    // Enable releases feature on the newly created Gitea repo
+    // The migrate API's "releases" param copies releases from source, but doesn't enable the feature
+    if (config.giteaConfig?.mirrorReleases) {
+      try {
+        await httpPatch(
+          `${config.giteaConfig.url}/api/v1/repos/${repoOwner}/${targetRepoName}`,
+          { has_releases: true },
+          { Authorization: `token ${decryptedConfig.giteaConfig.token}` }
+        );
+        console.log(`[Mirror] Enabled releases feature for ${repoOwner}/${targetRepoName}`);
+      } catch (patchError) {
+        console.warn(`[Mirror] Failed to enable releases feature for ${repoOwner}/${targetRepoName}:`, patchError);
+      }
+    }
+
     const metadataState = parseRepositoryMetadataState(repository.metadata);
     let metadataUpdated = false;
     const skipMetadataForStarred =
@@ -1160,6 +1175,21 @@ export async function mirrorGitHubRepoToGiteaOrg({
         Authorization: `token ${decryptedConfig.giteaConfig.token}`,
       }
     );
+
+    // Enable releases feature on the newly created Gitea repo
+    // The migrate API's "releases" param copies releases from source, but doesn't enable the feature
+    if (config.giteaConfig?.mirrorReleases) {
+      try {
+        await httpPatch(
+          `${config.giteaConfig.url}/api/v1/repos/${orgName}/${targetRepoName}`,
+          { has_releases: true },
+          { Authorization: `token ${decryptedConfig.giteaConfig.token}` }
+        );
+        console.log(`[Mirror] Enabled releases feature for ${orgName}/${targetRepoName}`);
+      } catch (patchError) {
+        console.warn(`[Mirror] Failed to enable releases feature for ${orgName}/${targetRepoName}:`, patchError);
+      }
+    }
 
     const metadataState = parseRepositoryMetadataState(repository.metadata);
     let metadataUpdated = false;
