@@ -87,6 +87,9 @@ export default function Repository() {
   const [repoToDelete, setRepoToDelete] = useState<Repository | null>(null);
   const [isDeleteRepoDialogOpen, setIsDeleteRepoDialogOpen] = useState(false);
   const [isDeletingRepo, setIsDeletingRepo] = useState(false);
+  const [isDeleteFromGiteaDialogOpen, setIsDeleteFromGiteaDialogOpen] = useState(false);
+  const [isDeletingFromGitea, setIsDeletingFromGitea] = useState(false);
+  const [repoToDeleteFromGitea, setRepoToDeleteFromGitea] = useState<Repository | null>(null);
 
   // Create a stable callback using useCallback
   const handleNewMessage = useCallback((data: MirrorJob) => {
@@ -851,6 +854,45 @@ export default function Repository() {
     }
   };
 
+  const handleRequestDeleteFromGitea = (repoId: string) => {
+    const repo = repositories.find((item) => item.id === repoId);
+    if (!repo) {
+      toast.error("Repository not found");
+      return;
+    }
+    setRepoToDeleteFromGitea(repo);
+    setIsDeleteFromGiteaDialogOpen(true);
+  };
+
+  const handleDeleteFromGitea = async () => {
+    if (!user || !user.id || !repoToDeleteFromGitea) {
+      return;
+    }
+
+    setIsDeletingFromGitea(true);
+    try {
+      const response = await apiRequest<{ success: boolean; error?: string }>(
+        `/repositories/${repoToDeleteFromGitea.id}?deleteFromGitea=true`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.success) {
+        toast.success(`Deleted ${repoToDeleteFromGitea.fullName} from Gitea and Gitea Mirror.`);
+        await fetchRepositories(false);
+      } else {
+        showErrorToast(response.error || "Failed to delete repository from Gitea", toast);
+      }
+    } catch (error) {
+      showErrorToast(error, toast);
+    } finally {
+      setIsDeletingFromGitea(false);
+      setIsDeleteFromGiteaDialogOpen(false);
+      setRepoToDeleteFromGitea(null);
+    }
+  };
+
   // Determine what actions are available for selected repositories
   const getAvailableActions = () => {
     if (selectedRepoIds.size === 0) return [];
@@ -1406,6 +1448,7 @@ export default function Repository() {
             await fetchRepositories(false);
           }}
           onDelete={handleRequestDeleteRepository}
+          onDeleteFromGitea={handleRequestDeleteFromGitea}
         />
       )}
 
@@ -1479,6 +1522,47 @@ export default function Repository() {
                 <span className="flex items-center gap-2">
                   <Trash2 className="h-4 w-4" />
                   Delete
+                </span>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isDeleteFromGiteaDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsDeleteFromGiteaDialogOpen(false);
+            setRepoToDeleteFromGitea(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete repository from Gitea?</DialogTitle>
+            <DialogDescription>
+              {repoToDeleteFromGitea?.fullName ?? "This repository"} will be permanently deleted from both Gitea and Gitea Mirror. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteFromGiteaDialogOpen(false);
+                setRepoToDeleteFromGitea(null);
+              }}
+              disabled={isDeletingFromGitea}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteFromGitea} disabled={isDeletingFromGitea}>
+              {isDeletingFromGitea ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Delete from Gitea
                 </span>
               )}
             </Button>

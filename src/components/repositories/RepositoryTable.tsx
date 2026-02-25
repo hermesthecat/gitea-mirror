@@ -42,6 +42,7 @@ interface RepositoryTableProps {
   onSelectionChange: (selectedIds: Set<string>) => void;
   onRefresh?: () => Promise<void>;
   onDelete?: (repoId: string) => void;
+  onDeleteFromGitea?: (repoId: string) => void;
 }
 
 export default function RepositoryTable({
@@ -59,6 +60,7 @@ export default function RepositoryTable({
   onSelectionChange,
   onRefresh,
   onDelete,
+  onDeleteFromGitea,
 }: RepositoryTableProps) {
   const tableParentRef = useRef<HTMLDivElement>(null);
   const { giteaConfig } = useGiteaConfig();
@@ -673,13 +675,14 @@ export default function RepositoryTable({
                       {/* Actions */}
                       <div className="h-full p-3 flex items-center justify-start flex-[1]">
                         <RepoActionButton
-                          repo={{ id: repo.id ?? "", status: repo.status }}
+                          repo={{ id: repo.id ?? "", status: repo.status, mirroredLocation: repo.mirroredLocation }}
                           isLoading={isLoading}
                           onMirror={() => onMirror({ repoId: repo.id ?? "" })}
                           onSync={() => onSync({ repoId: repo.id ?? "" })}
                           onRetry={() => onRetry({ repoId: repo.id ?? "" })}
                           onSkip={(skip) => onSkip({ repoId: repo.id ?? "", skip })}
                           onDelete={onDelete && repo.id ? () => onDelete(repo.id as string) : undefined}
+                          onDeleteFromGitea={onDeleteFromGitea && repo.id ? () => onDeleteFromGitea(repo.id as string) : undefined}
                         />
                       </div>
                       {/* Links */}
@@ -791,14 +794,16 @@ function RepoActionButton({
   onRetry,
   onSkip,
   onDelete,
+  onDeleteFromGitea,
 }: {
-  repo: { id: string; status: string };
+  repo: { id: string; status: string; mirroredLocation?: string | null };
   isLoading: boolean;
   onMirror: () => void;
   onSync: () => void;
   onRetry: () => void;
   onSkip: (skip: boolean) => void;
   onDelete?: () => void;
+  onDeleteFromGitea?: () => void;
 }) {
   // For ignored repos, show an "Include" action
   if (repo.status === "ignored") {
@@ -903,6 +908,15 @@ function RepoActionButton({
               Delete from Mirror
             </DropdownMenuItem>
           </>
+        )}
+        {onDeleteFromGitea && repo.mirroredLocation && (
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={onDeleteFromGitea}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete from Gitea
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

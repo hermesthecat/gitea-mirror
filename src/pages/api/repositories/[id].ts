@@ -1,8 +1,10 @@
 import type { APIRoute } from "astro";
-import { db, repositories, mirrorJobs } from "@/lib/db";
+import { db, repositories, mirrorJobs, configs } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { createSecureErrorResponse } from "@/lib/utils";
 import { requireAuth } from "@/lib/utils/auth-helpers";
+import { deleteGiteaRepo, createGiteaClient, getGiteaRepoOwnerAsync } from "@/lib/gitea";
+import { getDecryptedGiteaToken } from "@/lib/utils/config-encryption";
 
 export const PATCH: APIRoute = async (context) => {
   try {
@@ -69,6 +71,8 @@ export const DELETE: APIRoute = async (context) => {
 
     const userId = user!.id;
     const repoId = context.params.id;
+    const url = new URL(context.request.url);
+    const deleteFromGitea = url.searchParams.get("deleteFromGitea") === "true";
 
     if (!repoId) {
       return new Response(JSON.stringify({ error: "Repository ID is required" }), {
@@ -91,6 +95,38 @@ export const DELETE: APIRoute = async (context) => {
           headers: { "Content-Type": "application/json" },
         }
       );
+    }
+
+    // Delete from Gitea if requested
+    if (deleteFromGitea && existingRepo.mirroredLocation) {
+      const [config] = await db
+        .select()
+        .from(configs)
+        .where(eq(configs.userId, userId))
+        .limit(1);
+
+      if (config?.giteaConfig) {
+        try {
+          const giteaToken = getDecryptedGiteaToken(config);
+          const giteaClient = createGiteaClient(config.giteaConfig.url, giteaToken);
+          const [owner, repoName] = existingRepo.mirroredLocation.split("/");
+          
+          if (owner && repoName) {
+            await deleteGiteaRepo(giteaClient, owner, repoName);
+          }
+        } catch (giteaError) {
+          console.error(`Failed to delete repo from Gitea: ${giteaError}`);
+          return new Response(
+            JSON.stringify({ 
+              error: `Failed to delete from Gitea: ${giteaError instanceof Error ? giteaError.message : "Unknown error"}` 
+            }),
+            {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
+      }
     }
 
     await db
