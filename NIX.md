@@ -4,7 +4,7 @@
 
 ```bash
 # From GitHub (no clone needed!)
-nix run --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix run --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 
 # Or from local clone
 nix run --extra-experimental-features 'nix-command flakes' .#gitea-mirror
@@ -21,16 +21,16 @@ Secrets auto-generate, database auto-initializes, and the web UI starts at http:
 ### 1. Run Without Installing (from GitHub)
 ```bash
 # Latest version from main branch
-nix run --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix run --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 
 # Pin to specific version
-nix run github:RayLabsHQ/gitea-mirror/v3.8.11
+nix run github:hermesthecat/gitea-mirror/v3.8.11
 ```
 
 ### 2. Install to Profile
 ```bash
 # Install from GitHub
-nix profile install --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix profile install --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 
 # Run the installed binary
 gitea-mirror
@@ -39,7 +39,7 @@ gitea-mirror
 ### 3. Use Local Clone
 ```bash
 # Clone and run
-git clone https://github.com/RayLabsHQ/gitea-mirror.git
+git clone https://github.com/hermesthecat/gitea-mirror.git
 cd gitea-mirror
 nix run --extra-experimental-features 'nix-command flakes' .#gitea-mirror
 ```
@@ -48,7 +48,7 @@ nix run --extra-experimental-features 'nix-command flakes' .#gitea-mirror
 ```nix
 # configuration.nix
 {
-  inputs.gitea-mirror.url = "github:RayLabsHQ/gitea-mirror";
+  inputs.gitea-mirror.url = "github:hermesthecat/gitea-mirror";
 
   services.gitea-mirror = {
     enable = true;

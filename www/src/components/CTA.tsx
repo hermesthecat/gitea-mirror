@@ -28,13 +28,13 @@ export function CTA() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <Button size="lg" className="group w-full sm:w-auto min-h-[48px] bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300" asChild>
-                <a href="https://github.com/RayLabsHQ/gitea-mirror" target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/hermesthecat/gitea-mirror" target="_blank" rel="noopener noreferrer">
                   Get Started Now
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </a>
               </Button>
               <Button size="lg" variant="outline" className="w-full sm:w-auto min-h-[48px] bg-background/80 backdrop-blur-sm hover:bg-primary/10 hover:border-primary/30 hover:text-foreground transition-all duration-300" asChild>
-                <a href="https://github.com/RayLabsHQ/gitea-mirror/discussions" target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/hermesthecat/gitea-mirror/discussions" target="_blank" rel="noopener noreferrer">
                   Join Community
                 </a>
               </Button>
@@ -46,7 +46,7 @@ export function CTA() {
         <div className="mt-8 sm:mt-12 text-center">
           <p className="text-xs sm:text-sm text-muted-foreground">
             Gitea Mirror is licensed under GPL-3.0. 
-            <a href="https://github.com/RayLabsHQ/gitea-mirror/blob/main/LICENSE" 
+            <a href="https://github.com/hermesthecat/gitea-mirror/blob/main/LICENSE" 
                className="ml-1 underline hover:text-foreground transition-colors"
                target="_blank" 
                rel="noopener noreferrer">

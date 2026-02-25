@@ -33,7 +33,7 @@ export function SponsorCard() {
               asChild
             >
               <a 
-                href="https://github.com/sponsors/RayLabsHQ" 
+                href="https://github.com/sponsors/hermesthecat" 
                 target="_blank" 
                 rel="noopener noreferrer"
               >

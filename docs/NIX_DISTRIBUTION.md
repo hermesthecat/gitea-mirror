@@ -10,13 +10,13 @@ This guide explains how Gitea Mirror is distributed via Nix and how users can co
 
 ```bash
 # Latest from main branch
-nix run --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix run --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 
 # Pin to specific commit
-nix run github:RayLabsHQ/gitea-mirror/abc123def
+nix run github:hermesthecat/gitea-mirror/abc123def
 
 # Pin to git tag
-nix run github:RayLabsHQ/gitea-mirror/v3.8.11
+nix run github:hermesthecat/gitea-mirror/v3.8.11
 ```
 
 **How it works:**
@@ -94,7 +94,7 @@ environment.systemPackages = [ pkgs.gitea-mirror ];
 Already working! Users can:
 
 ```bash
-nix run github:RayLabsHQ/gitea-mirror
+nix run github:hermesthecat/gitea-mirror
 ```
 
 ### Phase 2: CI Build Validation ✅
@@ -114,7 +114,7 @@ git tag v3.8.11
 git push origin v3.8.11
 
 # Users can then pin:
-nix run github:RayLabsHQ/gitea-mirror/v3.8.11
+nix run github:hermesthecat/gitea-mirror/v3.8.11
 ```
 
 ### Phase 4: nixpkgs Submission (Long Term)
@@ -133,23 +133,23 @@ Add this to your `docs/NIX_DEPLOYMENT.md`:
 
 ```bash
 # Run immediately
-nix run --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix run --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 
 # Install to profile
-nix profile install --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix profile install --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 ```
 
 #### Option 2: Pin to Specific Version
 
 ```bash
 # Pin to git tag
-nix run github:RayLabsHQ/gitea-mirror/v3.8.11
+nix run github:hermesthecat/gitea-mirror/v3.8.11
 
 # Pin to commit
-nix run github:RayLabsHQ/gitea-mirror/abc123def
+nix run github:hermesthecat/gitea-mirror/abc123def
 
 # Lock in flake.nix
-inputs.gitea-mirror.url = "github:RayLabsHQ/gitea-mirror/v3.8.11";
+inputs.gitea-mirror.url = "github:hermesthecat/gitea-mirror/v3.8.11";
 ```
 
 #### Option 3: NixOS Configuration
@@ -158,9 +158,9 @@ inputs.gitea-mirror.url = "github:RayLabsHQ/gitea-mirror/v3.8.11";
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    gitea-mirror.url = "github:RayLabsHQ/gitea-mirror";
+    gitea-mirror.url = "github:hermesthecat/gitea-mirror";
     # Or pin to version:
-    # gitea-mirror.url = "github:RayLabsHQ/gitea-mirror/v3.8.11";
+    # gitea-mirror.url = "github:hermesthecat/gitea-mirror/v3.8.11";
   };
 
   outputs = { nixpkgs, gitea-mirror, ... }: {
@@ -207,7 +207,7 @@ git push origin vX.Y.Z
 
 Users can then pin to the new version:
 ```bash
-nix run github:RayLabsHQ/gitea-mirror/vX.Y.Z
+nix run github:hermesthecat/gitea-mirror/vX.Y.Z
 ```
 
 ### Updating Flake Lock
@@ -257,7 +257,7 @@ git tag -l
 git ls-remote --tags origin
 
 # Test specific tag
-nix run github:RayLabsHQ/gitea-mirror/v3.8.11
+nix run github:hermesthecat/gitea-mirror/v3.8.11
 ```
 
 ---

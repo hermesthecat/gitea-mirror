@@ -9,7 +9,7 @@ canonical: "https://gitea-mirror.com/use-cases/deploy-with-helm-chart/"
 
 ## Why ship it to Kubernetes
 
-If your homelab already runs a cluster (k3s, Talos, MicroK8s), Helm is the fastest way to keep Gitea Mirror close to the rest of your self-hosted stack. The chart in [`helm/gitea-mirror`](https://github.com/RayLabsHQ/gitea-mirror/tree/main/helm/gitea-mirror) bundles the deployment, service, ingress, and persistence so you can version your backup mirror just like any other release.
+If your homelab already runs a cluster (k3s, Talos, MicroK8s), Helm is the fastest way to keep Gitea Mirror close to the rest of your self-hosted stack. The chart in [`helm/gitea-mirror`](https://github.com/hermesthecat/gitea-mirror/tree/main/helm/gitea-mirror) bundles the deployment, service, ingress, and persistence so you can version your backup mirror just like any other release.
 
 ## Requirements
 
@@ -28,13 +28,13 @@ kubectl create namespace gitea-mirror
 
 ### 2. Provide credentials and install the chart
 
-The [chart README](https://github.com/RayLabsHQ/gitea-mirror/blob/main/helm/gitea-mirror/README.md) documents multiple supported approaches. Choose the one that matches how you manage secrets.
+The [chart README](https://github.com/hermesthecat/gitea-mirror/blob/main/helm/gitea-mirror/README.md) documents multiple supported approaches. Choose the one that matches how you manage secrets.
 
 **Inline quick start (no values file):**
 
 First, clone the repository or download the chart:
 ```bash
-git clone https://github.com/RayLabsHQ/gitea-mirror.git
+git clone https://github.com/hermesthecat/gitea-mirror.git
 cd gitea-mirror
 ```
 

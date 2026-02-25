@@ -25,7 +25,7 @@ experimental-features = nix-command flakes
 nix run --extra-experimental-features 'nix-command flakes' .#gitea-mirror
 
 # Or from GitHub (once published)
-nix run --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix run --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 
 # If you have flakes enabled globally, simply:
 nix run .#gitea-mirror
@@ -88,7 +88,7 @@ Add to your NixOS configuration (`/etc/nixos/configuration.nix`):
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    gitea-mirror.url = "github:RayLabsHQ/gitea-mirror";
+    gitea-mirror.url = "github:hermesthecat/gitea-mirror";
   };
 
   outputs = { nixpkgs, gitea-mirror, ... }: {
@@ -266,7 +266,7 @@ For single-user deployments:
 ```nix
 { config, pkgs, ... }:
 let
-  gitea-mirror = (import (fetchTarball "https://github.com/RayLabsHQ/gitea-mirror/archive/main.tar.gz")).packages.${pkgs.system}.default;
+  gitea-mirror = (import (fetchTarball "https://github.com/hermesthecat/gitea-mirror/archive/main.tar.gz")).packages.${pkgs.system}.default;
 in {
   home.packages = [ gitea-mirror ];
 

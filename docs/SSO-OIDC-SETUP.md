@@ -83,7 +83,7 @@ Replace `{provider-id}` with your chosen Provider ID.
 
 ### Example: Authentik SSO Setup
 
-Working Authentik deployments (see [#134](https://github.com/RayLabsHQ/gitea-mirror/issues/134)) follow these steps:
+Working Authentik deployments (see [#134](https://github.com/hermesthecat/gitea-mirror/issues/134)) follow these steps:
 
 1. In Authentik, create a new **Application** and OIDC **Provider** (implicit flow works well for testing).
 2. Start creating an SSO provider inside Gitea Mirror so you can copy the redirect URL shown (`https://your-domain.com/api/auth/sso/callback/authentik` if you pick `authentik` as your Provider ID).
@@ -185,7 +185,7 @@ When an application requests authentication:
 1. **"Invalid origin" error**: Check that your Gitea Mirror URL matches the configured redirect URI
 2. **"Provider not found" error**: Ensure the provider is properly configured and enabled
 3. **Redirect loop**: Verify the redirect URI in both Gitea Mirror and the SSO provider match exactly
-4. **`TypeError: undefined is not an object (evaluating 'url.startsWith')`**: This indicates the stored provider configuration is missing OIDC endpoints. Delete the provider from Gitea Mirror and re-register it using the **Discover** button so authorization/token URLs are saved (see [#73](https://github.com/RayLabsHQ/gitea-mirror/issues/73) and [#122](https://github.com/RayLabsHQ/gitea-mirror/issues/122) for examples).
+4. **`TypeError: undefined is not an object (evaluating 'url.startsWith')`**: This indicates the stored provider configuration is missing OIDC endpoints. Delete the provider from Gitea Mirror and re-register it using the **Discover** button so authorization/token URLs are saved (see [#73](https://github.com/hermesthecat/gitea-mirror/issues/73) and [#122](https://github.com/hermesthecat/gitea-mirror/issues/122) for examples).
 
 ### OIDC Provider Issues
 

@@ -304,4 +304,4 @@ Tweak probes, resources, and scheduling as needed; see `values.yaml`.
 
 ## License
 
-This chart is part of the `RayLabsHQ/gitea-mirror` repository. See the repository for licensing details.
+This chart is part of the `hermesthecat/gitea-mirror` repository. See the repository for licensing details.

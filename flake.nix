@@ -181,7 +181,7 @@ EOF
 
           meta = with pkgs.lib; {
             description = "Self-hosted GitHub to Gitea mirroring service";
-            homepage = "https://github.com/RayLabsHQ/gitea-mirror";
+            homepage = "https://github.com/hermesthecat/gitea-mirror";
             license = licenses.mit;
             maintainers = [ ];
             platforms = platforms.linux ++ platforms.darwin;

@@ -22,7 +22,7 @@ export function Installation() {
       steps: [
         {
           title: "Clone the repository",
-          command: "git clone https://github.com/RayLabsHQ/gitea-mirror.git && cd gitea-mirror",
+          command: "git clone https://github.com/hermesthecat/gitea-mirror.git && cd gitea-mirror",
           id: "docker-clone"
         },
         {
@@ -49,7 +49,7 @@ export function Installation() {
         },
         {
           title: "Clone and setup",
-          command: "git clone https://github.com/RayLabsHQ/gitea-mirror.git\ncd gitea-mirror\nbun run setup",
+          command: "git clone https://github.com/hermesthecat/gitea-mirror.git\ncd gitea-mirror\nbun run setup",
           id: "manual-setup"
         },
         {

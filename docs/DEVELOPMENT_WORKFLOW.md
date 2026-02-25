@@ -16,7 +16,7 @@ This guide covers the development workflow for the open-source Gitea Mirror.
 
 1. **Clone the repository**:
 ```bash
-git clone https://github.com/RayLabsHQ/gitea-mirror.git
+git clone https://github.com/hermesthecat/gitea-mirror.git
 cd gitea-mirror
 ```
 

@@ -14,7 +14,7 @@ export function GitHubStats() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('https://api.github.com/repos/RayLabsHQ/gitea-mirror');
+        const response = await fetch('https://api.github.com/repos/hermesthecat/gitea-mirror');
         if (response.ok) {
           const data = await response.json();
           setStats(data);

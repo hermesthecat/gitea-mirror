@@ -8,7 +8,7 @@ export function GitHubButton() {
   useEffect(() => {
     const fetchStars = async () => {
       try {
-        const response = await fetch('https://api.github.com/repos/RayLabsHQ/gitea-mirror');
+        const response = await fetch('https://api.github.com/repos/hermesthecat/gitea-mirror');
         if (response.ok) {
           const data = await response.json();
           setStars(data.stargazers_count);
@@ -30,7 +30,7 @@ export function GitHubButton() {
         className="md:hidden hover:bg-primary/10 hover:border-primary/30 hover:text-foreground transition-all duration-300 px-3" 
         asChild
       >
-        <a href="https://github.com/RayLabsHQ/gitea-mirror" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
+        <a href="https://github.com/hermesthecat/gitea-mirror" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5">
           <Star className="w-4 h-4" />
           <span className="font-semibold">{stars || '—'}</span>
         </a>
@@ -43,7 +43,7 @@ export function GitHubButton() {
         className="hidden md:flex hover:bg-primary/10 hover:border-primary/30 hover:text-foreground transition-all duration-300" 
         asChild
       >
-        <a href="https://github.com/RayLabsHQ/gitea-mirror" target="_blank" rel="noopener noreferrer" className="flex items-center">
+        <a href="https://github.com/hermesthecat/gitea-mirror" target="_blank" rel="noopener noreferrer" className="flex items-center">
           <Github className="w-4 h-4 mr-2" />
           <span>Star on GitHub</span>
           {stars !== null && (

@@ -9,7 +9,7 @@ Your Nix package is **already distributable**! Users can run it directly from Gi
 ### Simple: Just Run From GitHub
 
 ```bash
-nix run --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix run --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 ```
 
 That's it! No releases, no CI, no infrastructure needed. It works right now.
@@ -49,7 +49,7 @@ git tag v3.8.11
 git push origin v3.8.11
 
 # Users can then pin to this version
-nix run github:RayLabsHQ/gitea-mirror/v3.8.11
+nix run github:hermesthecat/gitea-mirror/v3.8.11
 ```
 
 No additional CI needed - tags work automatically with flakes!
@@ -103,10 +103,10 @@ You can test it right now:
 
 ```bash
 # Test direct GitHub usage
-nix run --extra-experimental-features 'nix-command flakes' github:RayLabsHQ/gitea-mirror
+nix run --extra-experimental-features 'nix-command flakes' github:hermesthecat/gitea-mirror
 
 # Test with specific commit
-nix run github:RayLabsHQ/gitea-mirror/$(git rev-parse HEAD)
+nix run github:hermesthecat/gitea-mirror/$(git rev-parse HEAD)
 
 # Validate flake
 nix flake check
@@ -143,14 +143,14 @@ git push origin main
 git push origin v3.8.12
 ```
 
-Users can then use: `nix run github:RayLabsHQ/gitea-mirror/v3.8.12`
+Users can then use: `nix run github:hermesthecat/gitea-mirror/v3.8.12`
 
 ### No Release Needed For:
 - Bug fixes
 - Small changes
 - Continuous updates
 
-Users can always use latest from main: `nix run github:RayLabsHQ/gitea-mirror`
+Users can always use latest from main: `nix run github:hermesthecat/gitea-mirror`
 
 ---
 

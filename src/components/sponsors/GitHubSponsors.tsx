@@ -30,7 +30,7 @@ export function GitHubSponsors() {
             asChild
           >
             <a 
-              href="https://github.com/sponsors/RayLabsHQ" 
+              href="https://github.com/sponsors/hermesthecat" 
               target="_blank" 
               rel="noopener noreferrer"
             >
@@ -47,7 +47,7 @@ export function GitHubSponsors() {
               asChild
             >
               <a 
-                href="https://github.com/RayLabsHQ/gitea-mirror" 
+                href="https://github.com/hermesthecat/gitea-mirror" 
                 target="_blank" 
                 rel="noopener noreferrer"
               >
@@ -93,7 +93,7 @@ export function SponsorButton() {
   return (
     <Button variant="outline" size="sm" asChild>
       <a 
-        href="https://github.com/sponsors/RayLabsHQ" 
+        href="https://github.com/sponsors/hermesthecat" 
         target="_blank" 
         rel="noopener noreferrer"
       >

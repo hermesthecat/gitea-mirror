@@ -21,7 +21,7 @@ If you are looking for customer-facing playbooks, see the MDX use cases under `w
 ## Quick start for local development
 
 ```bash
-git clone https://github.com/RayLabsHQ/gitea-mirror.git
+git clone https://github.com/hermesthecat/gitea-mirror.git
 cd gitea-mirror
 bun run setup           # installs deps and seeds the SQLite DB
 bun run dev             # starts the Astro/Bun app on http://localhost:4321
@@ -33,7 +33,7 @@ The first user you create locally becomes the administrator. All other configura
 
 - 🎯 Contribution guide: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - 📘 Code of conduct: [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md)
-- 🐞 Issues & feature requests: <https://github.com/RayLabsHQ/gitea-mirror/issues>
-- 💬 Discussions: <https://github.com/RayLabsHQ/gitea-mirror/discussions>
+- 🐞 Issues & feature requests: <https://github.com/hermesthecat/gitea-mirror/issues>
+- 💬 Discussions: <https://github.com/hermesthecat/gitea-mirror/discussions>
 
 Security disclosures should follow the process in [../SECURITY.md](../SECURITY.md).
