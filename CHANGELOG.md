@@ -5,6 +5,85 @@ All notable changes to the Gitea Mirror project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.13] - 2025-02-25
+
+### Fixed
+- Fixed releases feature not being enabled on Gitea repos after migrate
+  - The migrate API's `releases` param only copies releases from source, doesn't enable the feature
+  - Added PATCH call after migrate to set `has_releases: true`
+- Added retry logic for npm install failures in Docker build
+
+### Changed
+- Repository ownership transferred from RayLabsHQ to hermesthecat
+- Updated all documentation and code references to new repository URL
+
+## [3.9.12] - 2025-02-24
+
+### Added
+- Bulk delete actions for selected repositories
+  - Delete from Mirror (database only)
+  - Delete from Gitea
+  - Delete from Gitea & GitHub
+- Confirmation dialogs for all bulk delete operations
+
+## [3.9.11] - 2025-02-24
+
+### Fixed
+- Fixed unstarred repos still appearing in list after unstarring on GitHub
+  - Sync now marks repos as `isStarred: false` when no longer in GitHub response
+
+## [3.9.10] - 2025-02-24
+
+### Added
+- "Delete from Gitea & GitHub" button in repository actions
+  - Deletes repository from both Gitea mirror and GitHub source
+  - Requires confirmation dialog
+
+## [3.9.9] - 2025-02-24
+
+### Added
+- "Delete from Gitea" button in repository dropdown menu
+  - Allows deleting mirrored repo from Gitea while keeping database record
+
+## [3.9.8] - 2025-02-24
+
+### Added
+- Auto-create GitHub release on version tags in CI workflow
+
+### Changed
+- Removed Docker Hub login step from CI
+- Removed Docker Scout security scanning from CI
+
+## [3.9.7] - 2025-02-24
+
+### Changed
+- Updated version check URL to hermesthecat repository
+
+## [3.9.6] - 2025-02-24
+
+### Added
+- Enable releases feature on mirrored Gitea repos
+  - Added `releases: true` to migrate payload
+  - Added `has_releases: true` to sync PATCH payload
+
+## [3.9.5] - 2025-02-24
+
+### Added
+- Push repository metadata updates to Gitea during mirror sync
+  - Description, website, visibility, and other settings now sync to Gitea
+
+### Changed
+- Existing repositories now update with latest GitHub data on import
+  - Changed from `onConflictDoNothing` to update existing records
+
+## [3.9.4] - 2025-02-23
+
+### Security
+- Enforce session-derived user identity on API routes (#186)
+
+### Added
+- Filter out disabled GitHub repositories from API responses
+
 ## [Unreleased]
 
 ### Added
