@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 FROM base AS builder
 COPY package.json ./
 COPY bun.lock* ./
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile || (sleep 5 && bun install --frozen-lockfile) || (sleep 10 && bun install --frozen-lockfile)
 
 COPY . .
 RUN bun run build
@@ -23,7 +23,7 @@ RUN mkdir -p dist/scripts && \
 FROM base AS pruner
 COPY package.json ./
 COPY bun.lock* ./
-RUN bun install --production --omit=peer --frozen-lockfile
+RUN bun install --production --omit=peer --frozen-lockfile || (sleep 5 && bun install --production --omit=peer --frozen-lockfile) || (sleep 10 && bun install --production --omit=peer --frozen-lockfile)
 
 # ----------------------------
 FROM oven/bun:1.3.9-debian AS runner
