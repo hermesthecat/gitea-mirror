@@ -12,6 +12,7 @@ import { parseInterval, formatDuration } from '@/lib/utils/duration-parser';
 import type { Repository } from '@/lib/db/schema';
 import { repoStatusEnum, repositoryVisibilityEnum } from '@/types/Repository';
 import { mergeGitReposPreferStarred, normalizeGitRepoToInsert, calcBatchSizeForInsert } from '@/lib/repo-utils';
+import { isMirrorableGitHubRepo } from '@/lib/repo-eligibility';
 
 let schedulerInterval: NodeJS.Timeout | null = null;
 let isSchedulerRunning = false;
@@ -96,24 +97,25 @@ async function runScheduledSync(config: any): Promise<void> {
             : Promise.resolve([]),
         ]);
         const allGithubRepos = mergeGitReposPreferStarred(basicAndForkedRepos, starredRepos);
-        
+        const mirrorableGithubRepos = allGithubRepos.filter(isMirrorableGitHubRepo);
+
         // Check for new repositories
         const existingRepos = await db
           .select({ normalizedFullName: repositories.normalizedFullName })
           .from(repositories)
           .where(eq(repositories.userId, userId));
-        
+
         const existingRepoNames = new Set(existingRepos.map(r => r.normalizedFullName));
-        const newRepos = allGithubRepos.filter(r => !existingRepoNames.has(r.fullName.toLowerCase()));
-        
+        const newRepos = mirrorableGithubRepos.filter(r => !existingRepoNames.has(r.fullName.toLowerCase()));
+
         if (newRepos.length > 0) {
           console.log(`[Scheduler] Found ${newRepos.length} new repositories for user ${userId}`);
-          
+
           // Insert new repositories
-          const reposToInsert = newRepos.map(repo => 
+          const reposToInsert = newRepos.map(repo =>
             normalizeGitRepoToInsert(repo, { userId, configId: config.id })
           );
-          
+
           // Batch insert to avoid SQLite parameter limit
           const sample = reposToInsert[0];
           const columnCount = Object.keys(sample ?? {}).length || 1;
@@ -130,8 +132,13 @@ async function runScheduledSync(config: any): Promise<void> {
           console.log(`[Scheduler] No new repositories found for user ${userId}`);
         }
 
+        const skippedDisabledCount = allGithubRepos.length - mirrorableGithubRepos.length;
+        if (skippedDisabledCount > 0) {
+          console.log(`[Scheduler] Skipped ${skippedDisabledCount} disabled GitHub repositories for user ${userId}`);
+        }
+
         // Update existing repositories with latest GitHub data
-        const reposToUpdate = allGithubRepos.filter(r => existingRepoNames.has(r.fullName.toLowerCase()));
+        const reposToUpdate = mirrorableGithubRepos.filter(r => existingRepoNames.has(r.fullName.toLowerCase()));
         if (reposToUpdate.length > 0) {
           console.log(`[Scheduler] Updating ${reposToUpdate.length} existing repositories for user ${userId}`);
           for (const repo of reposToUpdate) {
@@ -452,24 +459,25 @@ async function performInitialAutoStart(): Promise<void> {
             : Promise.resolve([]),
         ]);
         const allGithubRepos = mergeGitReposPreferStarred(basicAndForkedRepos, starredRepos);
-        
+        const mirrorableGithubRepos = allGithubRepos.filter(isMirrorableGitHubRepo);
+
         // Check for new repositories
         const existingRepos = await db
           .select({ normalizedFullName: repositories.normalizedFullName })
           .from(repositories)
           .where(eq(repositories.userId, config.userId));
-        
+
         const existingRepoNames = new Set(existingRepos.map(r => r.normalizedFullName));
-        const reposToImport = allGithubRepos.filter(r => !existingRepoNames.has(r.fullName.toLowerCase()));
-        
+        const reposToImport = mirrorableGithubRepos.filter(r => !existingRepoNames.has(r.fullName.toLowerCase()));
+
         if (reposToImport.length > 0) {
           console.log(`[Scheduler] Importing ${reposToImport.length} repositories for user ${config.userId}...`);
-          
+
           // Insert new repositories
-          const reposToInsert = reposToImport.map(repo => 
+          const reposToInsert = reposToImport.map(repo =>
             normalizeGitRepoToInsert(repo, { userId: config.userId, configId: config.id })
           );
-          
+
           // Batch insert to avoid SQLite parameter limit
           const sample = reposToInsert[0];
           const columnCount = Object.keys(sample ?? {}).length || 1;
@@ -486,8 +494,13 @@ async function performInitialAutoStart(): Promise<void> {
           console.log(`[Scheduler] No new repositories to import for user ${config.userId}`);
         }
 
+        const skippedDisabledCount = allGithubRepos.length - mirrorableGithubRepos.length;
+        if (skippedDisabledCount > 0) {
+          console.log(`[Scheduler] Skipped ${skippedDisabledCount} disabled GitHub repositories for user ${config.userId}`);
+        }
+
         // Update existing repositories with latest GitHub data
-        const reposToUpdate = allGithubRepos.filter(r => existingRepoNames.has(r.fullName.toLowerCase()));
+        const reposToUpdate = mirrorableGithubRepos.filter(r => existingRepoNames.has(r.fullName.toLowerCase()));
         if (reposToUpdate.length > 0) {
           console.log(`[Scheduler] Updating ${reposToUpdate.length} existing repositories for user ${config.userId}`);
           for (const repo of reposToUpdate) {

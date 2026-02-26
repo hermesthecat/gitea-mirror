@@ -10,6 +10,7 @@ import { createGitHubClient, getGithubRepositories, getGithubStarredRepositories
 import { createGiteaClient, deleteGiteaRepo, archiveGiteaRepo, getGiteaRepoOwnerAsync, checkRepoLocation } from '@/lib/gitea';
 import { getDecryptedGitHubToken, getDecryptedGiteaToken } from '@/lib/utils/config-encryption';
 import { publishEvent } from '@/lib/events';
+import { isMirrorableGitHubRepo } from '@/lib/repo-eligibility';
 
 let cleanupInterval: NodeJS.Timeout | null = null;
 let isCleanupRunning = false;
@@ -59,29 +60,38 @@ async function identifyOrphanedRepositories(config: any): Promise<any[]> {
       return [];
     }
     
-    const githubRepoFullNames = new Set(allGithubRepos.map(repo => repo.fullName));
-    
+    const githubReposByFullName = new Map(
+      allGithubRepos.map((repo) => [repo.fullName, repo] as const)
+    );
+
     // Get all repositories from our database
     const dbRepos = await db
       .select()
       .from(repositories)
       .where(eq(repositories.userId, userId));
-    
+
     // Only identify repositories as orphaned if we successfully accessed GitHub
     // This prevents false positives when GitHub is down or account is inaccessible
     const orphanedRepos = dbRepos.filter(repo => {
-      const isOrphaned = !githubRepoFullNames.has(repo.fullName);
-      if (!isOrphaned) {
-        return false;
-      }
-
       // Skip repositories we've already archived/preserved
       if (repo.status === 'archived' || repo.isArchived) {
         console.log(`[Repository Cleanup] Skipping ${repo.fullName} - already archived`);
         return false;
       }
 
-      return true;
+      const githubRepo = githubReposByFullName.get(repo.fullName);
+      if (!githubRepo) {
+        // Repo not found in GitHub - it's orphaned
+        return true;
+      }
+
+      // Repo exists but is disabled on GitHub - preserve it, don't mark as orphaned
+      if (!isMirrorableGitHubRepo(githubRepo)) {
+        console.log(`[Repository Cleanup] Preserving ${repo.fullName} - repository is disabled on GitHub`);
+        return false;
+      }
+
+      return false;
     });
     
     if (orphanedRepos.length > 0) {
