@@ -37,3 +37,7 @@ result
 result-*
 .direnv/
 .vexp/
+
+# AI agent instruction files
+CLAUDE.md
+AGENTS.md
