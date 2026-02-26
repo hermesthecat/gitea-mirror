@@ -138,9 +138,10 @@ src/
 │   ├── utils/          # Utility functions
 │   │   ├── encryption.ts        # AES-256-GCM token encryption
 │   │   ├── config-encryption.ts # Config token encryption
-│   │   ├── duration-parser.ts   # Parse intervals (e.g., "8h", "30m")
+│   │   ├── duration-parser.ts   # Parse/format intervals (e.g., "8h", "30m", "36m 38s")
 │   │   ├── concurrency.ts       # Concurrency control utilities
 │   │   └── mirror-strategies.ts # Mirror strategy logic
+│   ├── repo-eligibility.ts # Check if GitHub repo is mirrorable (disabled repos)
 │   └── ...
 ├── types/              # TypeScript type definitions
 ├── tests/              # Test utilities and setup
@@ -270,8 +271,13 @@ scripts/                # Utility scripts
 
 6. **Duration Parsing:** Use `parseInterval()` from `src/lib/utils/duration-parser.ts`
    - Supports: "30m", "8h", "24h", "7d", cron expressions, or milliseconds
+   - Use `formatSecondsHuman()` or `formatMillisecondsHuman()` for human-readable output (e.g., "36m 38s")
 
-7. **Graceful Shutdown:** Services implement cleanup handlers (see `src/lib/shutdown-manager.ts`)
+7. **Repository Eligibility:** Use `isMirrorableGitHubRepo()` from `src/lib/repo-eligibility.ts`
+   - Filters out disabled GitHub repos (DMCA takedowns, ToS violations)
+   - Used in scheduler, cleanup service, and sync APIs
+
+8. **Graceful Shutdown:** Services implement cleanup handlers (see `src/lib/shutdown-manager.ts`)
    - Recovery system in `src/lib/recovery.ts` handles interrupted jobs
 
 ## Common Development Workflows

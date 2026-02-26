@@ -50,6 +50,7 @@ src/
 │   ├── gitea.ts    # Gitea API client
 │   ├── gitea-enhanced.ts  # Metadata mirroring (issues, PRs, releases)
 │   ├── scheduler-service.ts  # Automatic mirroring scheduler
+│   ├── repo-eligibility.ts   # Check if GitHub repo is mirrorable
 │   └── utils/      # Encryption, duration parsing, concurrency
 ├── types/          # TypeScript definitions
 └── tests/          # Test utilities and setup
@@ -136,5 +137,7 @@ Short, imperative, scoped: `lib: fix token parsing`, `ui: align buttons`, `feat:
 
 - Respect rate limits (GitHub: 5000 req/hr authenticated)
 - Duration parsing: Use `parseInterval()` from `src/lib/utils/duration-parser.ts` (supports "30m", "8h", "7d", cron)
+- Duration formatting: Use `formatSecondsHuman()` or `formatMillisecondsHuman()` for human-readable output (e.g., "36m 38s")
+- Repository eligibility: Use `isMirrorableGitHubRepo()` from `src/lib/repo-eligibility.ts` to filter disabled repos
 - Graceful shutdown: Services implement cleanup handlers (`src/lib/shutdown-manager.ts`)
 - Recovery: `src/lib/recovery.ts` handles interrupted jobs
