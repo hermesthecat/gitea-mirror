@@ -3,6 +3,7 @@ import type { GitRepo, RepoStatus } from "@/types/Repository";
 import { Octokit } from "@octokit/rest";
 import { throttling } from "@octokit/plugin-throttling";
 import type { Config } from "@/types/config";
+import { formatSecondsHuman } from "@/lib/utils/duration-parser";
 // Conditionally import rate limit manager (not available in test environment)
 let RateLimitManager: any = null;
 let publishEvent: any = null;
@@ -79,14 +80,14 @@ export function createGitHubClient(token: string, userId?: string, username?: st
               retryAfter,
               retryCount,
               endpoint: options.url,
-              message: `Rate limit hit. Waiting ${retryAfter}s before retry ${retryCount + 1}/${maxRetries}...`,
+              message: `Rate limit hit. Waiting ${formatSecondsHuman(retryAfter)} before retry ${retryCount + 1}/${maxRetries}...`,
             },
           });
         }
         
         // Retry with exponential backoff
         if (retryCount < maxRetries) {
-          console.log(`[GitHub] Waiting ${retryAfter}s before retry...`);
+          console.log(`[GitHub] Waiting ${formatSecondsHuman(retryAfter)} before retry...`);
           return true;
         }
         

@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { parseDuration, parseInterval, formatDuration, parseCronInterval } from './duration-parser';
+import { parseDuration, parseInterval, formatDuration, parseCronInterval, formatSecondsHuman, formatMillisecondsHuman } from './duration-parser';
 
 test('parseDuration - handles duration strings correctly', () => {
   // Hours
@@ -82,13 +82,33 @@ test('Integration test - Issue #72 scenario', () => {
   // User sets GITEA_MIRROR_INTERVAL=8h
   const userInterval = '8h';
   const parsedMs = parseInterval(userInterval);
-  
+
   expect(parsedMs).toBe(8 * 60 * 60 * 1000); // 8 hours in milliseconds
   expect(formatDuration(parsedMs)).toBe('8h');
-  
+
   // Should work from container startup time
   const startTime = new Date();
   const nextRun = new Date(startTime.getTime() + parsedMs);
-  
+
   expect(nextRun.getTime() - startTime.getTime()).toBe(8 * 60 * 60 * 1000);
+});
+
+test('formatSecondsHuman - converts seconds to human-readable format', () => {
+  expect(formatSecondsHuman(0)).toBe('0s');
+  expect(formatSecondsHuman(45)).toBe('45s');
+  expect(formatSecondsHuman(60)).toBe('1m');
+  expect(formatSecondsHuman(90)).toBe('1m 30s');
+  expect(formatSecondsHuman(3600)).toBe('1h');
+  expect(formatSecondsHuman(3661)).toBe('1h 1m 1s');
+  expect(formatSecondsHuman(2198)).toBe('36m 38s');
+  expect(formatSecondsHuman(86400)).toBe('1d');
+  expect(formatSecondsHuman(90061)).toBe('1d 1h 1m 1s');
+});
+
+test('formatMillisecondsHuman - converts milliseconds to human-readable format', () => {
+  expect(formatMillisecondsHuman(0)).toBe('0s');
+  expect(formatMillisecondsHuman(45000)).toBe('45s');
+  expect(formatMillisecondsHuman(60000)).toBe('1m');
+  expect(formatMillisecondsHuman(90000)).toBe('1m 30s');
+  expect(formatMillisecondsHuman(2198000)).toBe('36m 38s');
 });

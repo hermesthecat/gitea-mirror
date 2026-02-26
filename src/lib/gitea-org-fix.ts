@@ -1,6 +1,7 @@
 import type { Config } from "@/types/config";
 import { createMirrorJob } from "./helpers";
 import { decryptConfigTokens } from "./utils/config-encryption";
+import { formatMillisecondsHuman } from "./utils/duration-parser";
 
 /**
  * Enhanced version of getOrCreateGiteaOrg with retry logic for race conditions
@@ -134,7 +135,7 @@ export async function getOrCreateGiteaOrgWithRetry({
         // Wait before retry with exponential backoff
         if (attempt < maxRetries - 1) {
           const delay = retryDelay * Math.pow(2, attempt);
-          console.log(`Waiting ${delay}ms before retry...`);
+          console.log(`Waiting ${formatMillisecondsHuman(delay)} before retry...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue; // Retry the loop
         }

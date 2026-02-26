@@ -154,6 +154,48 @@ export function formatDuration(milliseconds: number): string {
 }
 
 /**
+ * Format seconds to human-readable duration with multiple units
+ * @param seconds - Duration in seconds
+ * @returns Human-readable duration string (e.g., "36m 38s", "2h 5m 30s")
+ */
+export function formatSecondsHuman(seconds: number): string {
+  if (seconds < 1) {
+    return '0s';
+  }
+
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  const parts: string[] = [];
+
+  if (days > 0) {
+    parts.push(`${days}d`);
+  }
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes}m`);
+  }
+  if (secs > 0 || parts.length === 0) {
+    parts.push(`${secs}s`);
+  }
+
+  return parts.join(' ');
+}
+
+/**
+ * Format milliseconds to human-readable duration with multiple units
+ * @param milliseconds - Duration in milliseconds
+ * @returns Human-readable duration string (e.g., "36m 38s", "2h 5m 30s")
+ */
+export function formatMillisecondsHuman(milliseconds: number): string {
+  return formatSecondsHuman(Math.floor(milliseconds / 1000));
+}
+
+/**
  * Parse cron expression to approximate milliseconds interval
  * This is a simplified parser for common cron patterns
  * @param cron - Cron expression

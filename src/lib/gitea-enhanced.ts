@@ -19,6 +19,7 @@ import {
   parseRepositoryMetadataState,
   serializeRepositoryMetadataState,
 } from "./metadata-state";
+import { formatMillisecondsHuman } from "./utils/duration-parser";
 
 type SyncDependencies = {
   getGiteaRepoOwnerAsync: typeof import("./gitea")["getGiteaRepoOwnerAsync"];
@@ -191,7 +192,7 @@ export async function getOrCreateGiteaOrgEnhanced({
             
             // Wait before retry with exponential backoff
             const delay = process.env.NODE_ENV === 'test' ? 0 : retryDelay * Math.pow(2, attempt);
-            console.log(`[Org Creation] Waiting ${delay}ms before retry...`);
+            console.log(`[Org Creation] Waiting ${formatMillisecondsHuman(delay)} before retry...`);
             if (delay > 0) {
               await new Promise(resolve => setTimeout(resolve, delay));
             }
