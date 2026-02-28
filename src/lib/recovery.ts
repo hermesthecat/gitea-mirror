@@ -79,7 +79,8 @@ async function cleanupStaleJobs(): Promise<void> {
  * Reset repositories stuck in transitional states (mirroring/syncing)
  * These repos were likely interrupted by a container restart
  */
-async function resetStuckRepositories(): Promise<void> {
+export async function resetStuckRepositories(): Promise<number> {
+  let totalReset = 0;
   try {
     // Find repos stuck in mirroring state
     const stuckMirroring = await db
@@ -131,8 +132,12 @@ async function resetStuckRepositories(): Promise<void> {
     if (stuckMirroring.length === 0 && stuckSyncing.length === 0) {
       console.log('[Recovery] No stuck repositories found');
     }
+    
+    totalReset = stuckMirroring.length + stuckSyncing.length;
+    return totalReset;
   } catch (error) {
     console.error('[Recovery] Error resetting stuck repositories:', error);
+    return 0;
   }
 }
 

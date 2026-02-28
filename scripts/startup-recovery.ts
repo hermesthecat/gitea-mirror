@@ -12,7 +12,7 @@
  *   --timeout: Maximum time to wait for recovery (in milliseconds, default: 30000)
  */
 
-import { initializeRecovery, hasJobsNeedingRecovery, getRecoveryStatus } from "../src/lib/recovery";
+import { initializeRecovery, hasJobsNeedingRecovery, getRecoveryStatus, resetStuckRepositories } from "../src/lib/recovery";
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -43,6 +43,13 @@ async function runStartupRecovery() {
 
     // Check if recovery is needed first
     console.log('Checking if recovery is needed...');
+    
+    // Always reset stuck repositories first
+    const stuckReposReset = await resetStuckRepositories();
+    if (stuckReposReset > 0) {
+      console.log(`✅ Reset ${stuckReposReset} stuck repositories`);
+    }
+    
     const needsRecovery = await hasJobsNeedingRecovery();
     
     if (!needsRecovery) {
