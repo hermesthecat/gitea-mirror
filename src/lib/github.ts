@@ -57,8 +57,15 @@ export function createGitHubClient(token: string, userId?: string, username?: st
         const isSearch = options.url.includes("/search/");
         const maxRetries = isSearch ? 5 : 3; // Search endpoints get more retries
         
+        // Build actual URL from template and parameters
+        let actualUrl = options.url;
+        if (options.owner) actualUrl = actualUrl.replace('{owner}', options.owner);
+        if (options.repo) actualUrl = actualUrl.replace('{repo}', options.repo);
+        if (options.pull_number) actualUrl = actualUrl.replace('{pull_number}', options.pull_number);
+        if (options.issue_number) actualUrl = actualUrl.replace('{issue_number}', options.issue_number);
+        
         console.warn(
-          `[GitHub] Rate limit hit for ${options.method} ${options.url}. Retry ${retryCount + 1}/${maxRetries}`
+          `[GitHub] Rate limit hit for ${options.method} ${actualUrl}. Retry ${retryCount + 1}/${maxRetries}`
         );
         
         // Update rate limit status and notify UI (if available)
@@ -92,12 +99,19 @@ export function createGitHubClient(token: string, userId?: string, username?: st
         }
         
         // Max retries reached
-        console.error(`[GitHub] Max retries (${maxRetries}) reached for ${options.url}`);
+        console.error(`[GitHub] Max retries (${maxRetries}) reached for ${actualUrl}`);
         return false;
       },
       onSecondaryRateLimit: async (retryAfter: number, options: any, octokit: any, retryCount: number) => {
+        // Build actual URL from template and parameters
+        let actualUrl = options.url;
+        if (options.owner) actualUrl = actualUrl.replace('{owner}', options.owner);
+        if (options.repo) actualUrl = actualUrl.replace('{repo}', options.repo);
+        if (options.pull_number) actualUrl = actualUrl.replace('{pull_number}', options.pull_number);
+        if (options.issue_number) actualUrl = actualUrl.replace('{issue_number}', options.issue_number);
+        
         console.warn(
-          `[GitHub] Secondary rate limit hit for ${options.method} ${options.url}`
+          `[GitHub] Secondary rate limit hit for ${options.method} ${actualUrl}`
         );
         
         // Update status and notify UI (if available)
