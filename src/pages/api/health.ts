@@ -1,10 +1,12 @@
 import type { APIRoute } from "astro";
 import { jsonResponse, createSecureErrorResponse } from "@/lib/utils";
-import { db } from "@/lib/db";
+import { db, configs } from "@/lib/db";
 import { ENV } from "@/lib/config";
 import { getRecoveryStatus, hasJobsNeedingRecovery } from "@/lib/recovery";
+import { getDecryptedGiteaToken } from "@/lib/utils/config-encryption";
 import os from "os";
 import { httpGet } from "@/lib/http-client";
+import { eq } from "drizzle-orm";
 
 // Track when the server started
 const serverStartTime = new Date();
@@ -41,11 +43,16 @@ export const GET: APIRoute = async () => {
 
     // Get recovery system status
     const recoveryStatus = await getRecoverySystemStatus();
+    
+    // Check Gitea server status (if configured)
+    const giteaStatus = await checkGiteaConnection();
 
     // Determine overall health status
     let overallStatus = "ok";
     if (!dbStatus.connected) {
       overallStatus = "error";
+    } else if (giteaStatus.status === "error") {
+      overallStatus = "degraded";
     } else if (recoveryStatus.jobsNeedingRecovery > 0 && !recoveryStatus.inProgress) {
       overallStatus = "degraded";
     }
@@ -60,6 +67,7 @@ export const GET: APIRoute = async () => {
                        currentVersion !== "unknown" &&
                        compareVersions(currentVersion, latestVersion) < 0,
       database: dbStatus,
+      gitea: giteaStatus,
       recovery: recoveryStatus,
       system: systemInfo,
     };
@@ -91,6 +99,101 @@ async function checkDatabaseConnection() {
     return {
       connected: false,
       message: error instanceof Error ? error.message : "Database connection failed",
+    };
+  }
+}
+
+/**
+ * Check Gitea server connection status
+ * Uses the first configured Gitea instance to verify connectivity
+ */
+async function checkGiteaConnection() {
+  try {
+    // Get the first config with Gitea settings
+    const configList = await db.select().from(configs).limit(1);
+    
+    if (configList.length === 0 || !configList[0].giteaConfig) {
+      return {
+        status: "not_configured",
+        message: "No Gitea configuration found",
+        responseTime: null,
+      };
+    }
+    
+    const config = configList[0];
+    const giteaConfig = typeof config.giteaConfig === 'string' 
+      ? JSON.parse(config.giteaConfig) 
+      : config.giteaConfig;
+    
+    if (!giteaConfig?.url) {
+      return {
+        status: "not_configured",
+        message: "Gitea URL not configured",
+        responseTime: null,
+      };
+    }
+    
+    // Decrypt token for API call
+    const decryptedToken = getDecryptedGiteaToken(config as any);
+    
+    // Measure response time
+    const startTime = Date.now();
+    
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    try {
+      const response = await fetch(`${giteaConfig.url}/api/v1/version`, {
+        headers: {
+          Authorization: `token ${decryptedToken}`,
+        },
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      const responseTime = Date.now() - startTime;
+      
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          status: "ok",
+          message: "Gitea server is responsive",
+          version: data.version || "unknown",
+          responseTime: `${responseTime}ms`,
+          url: giteaConfig.url,
+        };
+      } else {
+        return {
+          status: "error",
+          message: `Gitea returned HTTP ${response.status}`,
+          responseTime: `${responseTime}ms`,
+          url: giteaConfig.url,
+        };
+      }
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      const responseTime = Date.now() - startTime;
+      
+      if (fetchError instanceof Error && 
+          (fetchError.name === 'AbortError' || fetchError.message.includes('timeout'))) {
+        return {
+          status: "timeout",
+          message: "Gitea server timed out (>10s)",
+          responseTime: `${responseTime}ms`,
+          url: giteaConfig.url,
+        };
+      }
+      
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error("Gitea connection check failed:", error);
+    
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gitea connection check failed",
+      responseTime: null,
     };
   }
 }
