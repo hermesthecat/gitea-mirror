@@ -4,21 +4,21 @@
 
 services:
   gitea-mirror:
-    image: ghcr.io/raylabshq/gitea-mirror:latest
+    image: ghcr.io/hermesthecat/gitea-mirror:latest
     container_name: gitea-mirror
     restart: unless-stopped
     ports:
       - "${PORT:-4321}:4321"
     user: ${PUID:-1000}:${PGID:-1000}
     volumes:
-      - ./data:/app/data
+      - ./docker-data:/app/data
     environment:
       # === ABSOLUTELY REQUIRED ===
       # This MUST be set and CANNOT be changed via UI
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}  # Min 32 chars, required for sessions
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET} # Min 32 chars, required for sessions
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:4321}
       - BETTER_AUTH_TRUSTED_ORIGINS=${BETTER_AUTH_TRUSTED_ORIGINS:-http://localhost:4321}
-      
+
       # === CORE SETTINGS ===
       # These are technically required but have working defaults
       - NODE_ENV=production
@@ -30,9 +30,17 @@ services:
       # If you want perfect ordering of issues and PRs, set these at 1
       - MIRROR_ISSUE_CONCURRENCY=${MIRROR_ISSUE_CONCURRENCY:-3}
       - MIRROR_PULL_REQUEST_CONCURRENCY=${MIRROR_PULL_REQUEST_CONCURRENCY:-5}
-      
+
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=3", "--spider", "http://localhost:4321/api/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=3",
+          "--spider",
+          "http://localhost:4321/api/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -52,7 +60,7 @@ services:
 #
 # 5. Configure everything else through the web UI:
 #    - GitHub credentials
-#    - Gitea credentials  
+#    - Gitea credentials
 #    - Mirror settings
 #    - Scheduling options
 #    - Auto-import settings
