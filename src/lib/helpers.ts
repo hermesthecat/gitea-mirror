@@ -220,13 +220,22 @@ export async function findInterruptedJobs() {
       .select()
       .from(mirrorJobs)
       .where(
-        and(
-          eq(mirrorJobs.inProgress, true),
-          or(
-            // Jobs with no recent checkpoint
-            or(isNull(mirrorJobs.lastCheckpoint), lt(mirrorJobs.lastCheckpoint, cutoffTime)),
-            // Jobs that started too long ago (likely stale)
-            lt(mirrorJobs.startedAt, staleCutoffTime)
+        or(
+          // Jobs marked as in-progress with no recent activity
+          and(
+            eq(mirrorJobs.inProgress, true),
+            or(
+              // Jobs with no recent checkpoint
+              or(isNull(mirrorJobs.lastCheckpoint), lt(mirrorJobs.lastCheckpoint, cutoffTime)),
+              // Jobs that started too long ago (likely stale)
+              lt(mirrorJobs.startedAt, staleCutoffTime)
+            )
+          ),
+          // Jobs that were interrupted (not completed, not in progress, but have remaining items)
+          and(
+            eq(mirrorJobs.inProgress, false),
+            isNull(mirrorJobs.completedAt),
+            eq(mirrorJobs.status, 'mirroring')
           )
         )
       );
