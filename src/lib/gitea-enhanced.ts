@@ -11,7 +11,7 @@ import type { Repository } from "./db/schema";
 import { Octokit } from "@octokit/rest";
 import { createMirrorJob } from "./helpers";
 import { decryptConfigTokens } from "./utils/config-encryption";
-import { httpPost, httpGet, httpPatch, HttpError } from "./http-client";
+import { httpPost, httpGet, httpPatch, httpPut, HttpError } from "./http-client";
 import { db, repositories } from "./db";
 import { eq } from "drizzle-orm";
 import { repoStatusEnum } from "@/types/Repository";
@@ -328,6 +328,9 @@ export async function syncGiteaRepoEnhanced({
       if (repository.description !== undefined) {
         updatePayload.description = repository.description || "";
       }
+      if (repository.homepage !== undefined) {
+        updatePayload.website = repository.homepage || "";
+      }
       if (repository.isArchived !== undefined) {
         updatePayload.archived = repository.isArchived;
       }
@@ -352,6 +355,28 @@ export async function syncGiteaRepoEnhanced({
           Authorization: `token ${decryptedConfig.giteaConfig.token}`,
         });
         console.log(`[Sync] Successfully updated Gitea metadata for ${repository.name}`);
+      }
+
+      // Sync topics separately (different API endpoint)
+      if (repository.topics) {
+        let topicsArray: string[] = [];
+        if (typeof repository.topics === 'string') {
+          try {
+            topicsArray = JSON.parse(repository.topics);
+          } catch {
+            topicsArray = [];
+          }
+        } else if (Array.isArray(repository.topics)) {
+          topicsArray = repository.topics;
+        }
+        if (topicsArray.length > 0) {
+          await httpPut(
+            `${config.giteaConfig.url}/api/v1/repos/${repoOwner}/${repository.name}/topics`,
+            { topics: topicsArray },
+            { Authorization: `token ${decryptedConfig.giteaConfig.token}` }
+          );
+          console.log(`[Sync] Synced ${topicsArray.length} topics for ${repository.name}`);
+        }
       }
     } catch (updateError) {
       console.warn(`[Sync] Failed to update Gitea metadata for ${repository.name}:`, updateError);
