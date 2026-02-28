@@ -357,11 +357,16 @@ async function recoverMirrorJob(job: any, remainingItemIds: string[]) {
         };
 
         // Mirror the repository based on whether it's in an organization
-        if (repo.organization && config.giteaConfig.preserveOrgStructure) {
+        // BUT: starred repos should always go to the starred org, not the GitHub org
+        const shouldUseOrgMirror = repo.organization && 
+          config.giteaConfig.preserveOrgStructure && 
+          !repo.isStarred;
+          
+        if (shouldUseOrgMirror) {
           await mirrorGitHubOrgRepoToGiteaOrg({
             config,
             octokit,
-            orgName: repo.organization,
+            orgName: repo.organization!,
             repository: repoData,
           });
         } else {
