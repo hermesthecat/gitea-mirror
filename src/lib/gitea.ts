@@ -187,7 +187,7 @@ export const isRepoPresentInGitea = async ({
   config: Partial<Config>;
   owner: string;
   repoName: string;
-}): Promise<boolean> => {
+}): Promise<boolean | 'timeout'> => {
   try {
     if (!config.giteaConfig?.url || !config.giteaConfig?.token) {
       throw new Error("Gitea config is required.");
@@ -196,18 +196,50 @@ export const isRepoPresentInGitea = async ({
     // Decrypt config tokens for API usage
     const decryptedConfig = decryptConfigTokens(config as Config);
 
-    // Check if the repository exists at the specified owner location
-    const response = await fetch(
-      `${config.giteaConfig.url}/api/v1/repos/${owner}/${repoName}`,
-      {
-        headers: {
-          Authorization: `token ${decryptedConfig.giteaConfig.token}`,
-        },
-      }
-    );
+    // Create AbortController for timeout handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-    return response.ok;
+    try {
+      // Check if the repository exists at the specified owner location
+      const response = await fetch(
+        `${config.giteaConfig.url}/api/v1/repos/${owner}/${repoName}`,
+        {
+          headers: {
+            Authorization: `token ${decryptedConfig.giteaConfig.token}`,
+          },
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+      return response.ok;
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      // Check if it's a timeout/abort error
+      if (fetchError instanceof Error && 
+          (fetchError.name === 'AbortError' || 
+           fetchError.message.includes('timeout') ||
+           fetchError.message.includes('aborted'))) {
+        console.warn(`[Gitea] Timeout checking if repo exists: ${owner}/${repoName}`);
+        return 'timeout';
+      }
+      
+      throw fetchError;
+    }
   } catch (error) {
+    // Check for timeout-like errors from the outer try-catch
+    if (error instanceof Error && 
+        (error.name === 'AbortError' || 
+         error.message.includes('timeout') ||
+         error.message.includes('aborted') ||
+         error.message.includes('ETIMEDOUT') ||
+         error.message.includes('ECONNRESET'))) {
+      console.warn(`[Gitea] Network timeout checking repo ${owner}/${repoName}: ${error.message}`);
+      return 'timeout';
+    }
+    
     console.error("Error checking if repo exists in Gitea:", error);
     return false;
   }
@@ -329,7 +361,8 @@ export const checkRepoLocation = async ({
         repoName: repository.name,
       });
 
-      if (mirroredPresent) {
+      // Treat timeout as "not found" for this check - we'll verify later
+      if (mirroredPresent === true) {
         console.log(
           `Repository found at recorded mirrored location: ${repository.mirroredLocation}`
         );
@@ -345,7 +378,8 @@ export const checkRepoLocation = async ({
     repoName: repository.name,
   });
 
-  if (present) {
+  // Treat timeout as "not found" - safer to attempt mirror than skip
+  if (present === true) {
     return { present: true, actualOwner: expectedOwner };
   }
 
@@ -440,7 +474,13 @@ export const mirrorGithubRepoToGitea = async ({
       repoName: targetRepoName,
     });
 
-    if (isExisting) {
+    // Handle timeout - if we can't check, proceed with caution
+    // The migrate API will fail if repo already exists, which is safer than skipping
+    if (isExisting === 'timeout') {
+      console.warn(
+        `[Timeout] Cannot verify if ${targetRepoName} exists in Gitea. Proceeding with mirror attempt.`
+      );
+    } else if (isExisting === true) {
       console.log(
         `Repository ${targetRepoName} already exists in Gitea under ${repoOwner}. Updating database status.`
       );
@@ -948,6 +988,15 @@ async function generateUniqueRepoName({
     repoName: baseName,
   });
 
+  // TIMEOUT HANDLING: If we can't determine if repo exists, don't generate new names
+  // This prevents creating duplicates when Gitea is slow/unresponsive
+  if (baseExists === 'timeout') {
+    throw new Error(
+      `Cannot determine if repository "${baseName}" exists in ${orgName} due to timeout. ` +
+      `Please retry later when Gitea server is responsive.`
+    );
+  }
+
   if (!baseExists) {
     return baseName;
   }
@@ -983,6 +1032,14 @@ async function generateUniqueRepoName({
       owner: orgName,
       repoName: candidateName,
     });
+
+    // TIMEOUT HANDLING: If we can't determine if repo exists, don't continue generating names
+    if (exists === 'timeout') {
+      throw new Error(
+        `Cannot determine if repository "${candidateName}" exists in ${orgName} due to timeout. ` +
+        `Please retry later when Gitea server is responsive.`
+      );
+    }
 
     if (!exists) {
       console.log(`Found unique name for duplicate starred repo: ${candidateName}`);
@@ -1099,7 +1156,13 @@ export async function mirrorGitHubRepoToGiteaOrg({
       repoName: targetRepoName,
     });
 
-    if (isExisting) {
+    // Handle timeout - if we can't check, proceed with caution
+    // The migrate API will fail if repo already exists, which is safer than skipping
+    if (isExisting === 'timeout') {
+      console.warn(
+        `[Timeout] Cannot verify if ${targetRepoName} exists in Gitea org ${orgName}. Proceeding with mirror attempt.`
+      );
+    } else if (isExisting === true) {
       console.log(
         `Repository ${targetRepoName} already exists in Gitea organization ${orgName}. Updating database status.`
       );
