@@ -380,11 +380,25 @@ export const mirrorGithubRepoToGitea = async ({
     // Determine the actual repository name to use (handle duplicates for starred repos)
     let targetRepoName = repository.name;
 
-    if (
+    // IDEMPOTENCY FIX: If mirroredLocation is already set, use it instead of generating new name
+    // This prevents creating duplicate repos like reponame-owner-1, reponame-owner-2, etc.
+    // when retrying after timeout errors
+    if (repository.mirroredLocation && repository.mirroredLocation.includes('/')) {
+      const [existingOwner, ...repoNameParts] = repository.mirroredLocation.split('/');
+      const existingRepoName = repoNameParts.join('/');
+      if (existingOwner && existingRepoName) {
+        console.log(
+          `[Idempotency] Using existing mirroredLocation for ${repository.fullName}: ${repository.mirroredLocation}`
+        );
+        repoOwner = existingOwner;
+        targetRepoName = existingRepoName;
+      }
+    } else if (
       repository.isStarred &&
       config.githubConfig &&
       (config.githubConfig.starredReposMode || "dedicated-org") === "dedicated-org"
     ) {
+      // Only generate unique name if mirroredLocation is not set
       // Extract GitHub owner from full_name (format: owner/repo)
       const githubOwner = repository.fullName.split('/')[0];
 
@@ -1018,7 +1032,28 @@ export async function mirrorGitHubRepoToGiteaOrg({
     // Determine the actual repository name to use (handle duplicates for starred repos)
     let targetRepoName = repository.name;
 
-    if (
+    // IDEMPOTENCY FIX: If mirroredLocation is already set and points to this org, use the repo name from it
+    // This prevents creating duplicate repos like reponame-owner-1, reponame-owner-2, etc.
+    // when retrying after timeout errors
+    if (repository.mirroredLocation && repository.mirroredLocation.includes('/')) {
+      const [existingOwner, ...repoNameParts] = repository.mirroredLocation.split('/');
+      const existingRepoName = repoNameParts.join('/');
+      // Only use existing name if it's in the same org we're targeting
+      if (existingOwner === orgName && existingRepoName) {
+        console.log(
+          `[Idempotency] Using existing mirroredLocation for ${repository.fullName}: ${repository.mirroredLocation}`
+        );
+        targetRepoName = existingRepoName;
+      } else if (existingOwner && existingRepoName) {
+        // mirroredLocation points to a different org - log warning but continue with new name generation
+        console.warn(
+          `[Idempotency] mirroredLocation ${repository.mirroredLocation} points to different org than target ${orgName}`
+        );
+      }
+    }
+    
+    // Only generate unique name if we haven't already got one from mirroredLocation
+    if (targetRepoName === repository.name &&
       repository.isStarred &&
       config.githubConfig &&
       (config.githubConfig.starredReposMode || "dedicated-org") === "dedicated-org"
