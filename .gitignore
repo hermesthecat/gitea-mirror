@@ -41,3 +41,4 @@ result-*
 # AI agent instruction files
 CLAUDE.md
 AGENTS.md
+docker-data/
