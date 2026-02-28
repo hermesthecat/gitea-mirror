@@ -5,7 +5,7 @@
 
 import { findInterruptedJobs, resumeInterruptedJob } from './helpers';
 import { db, repositories, organizations, mirrorJobs, configs } from './db';
-import { eq, and, lt, inArray } from 'drizzle-orm';
+import { eq, and, lt, inArray, or } from 'drizzle-orm';
 import { mirrorGithubRepoToGitea, mirrorGitHubOrgRepoToGiteaOrg, syncGiteaRepo } from './gitea';
 import { createGitHubClient } from './github';
 import { processWithResilience } from './utils/concurrency';
@@ -76,6 +76,67 @@ async function cleanupStaleJobs(): Promise<void> {
 }
 
 /**
+ * Reset repositories stuck in transitional states (mirroring/syncing)
+ * These repos were likely interrupted by a container restart
+ */
+async function resetStuckRepositories(): Promise<void> {
+  try {
+    // Find repos stuck in mirroring state
+    const stuckMirroring = await db
+      .select({ id: repositories.id, fullName: repositories.fullName })
+      .from(repositories)
+      .where(eq(repositories.status, 'mirroring'));
+
+    if (stuckMirroring.length > 0) {
+      console.log(`[Recovery] Found ${stuckMirroring.length} repositories stuck in 'mirroring' state`);
+      
+      // Reset to 'imported' so they can be re-mirrored
+      await db
+        .update(repositories)
+        .set({
+          status: 'imported',
+          errorMessage: 'Reset from stuck mirroring state after container restart',
+          updatedAt: new Date(),
+        })
+        .where(eq(repositories.status, 'mirroring'));
+
+      console.log(`[Recovery] Reset ${stuckMirroring.length} repos from 'mirroring' to 'imported'`);
+    }
+
+    // Find repos stuck in syncing state
+    const stuckSyncing = await db
+      .select({ id: repositories.id, fullName: repositories.fullName, mirroredLocation: repositories.mirroredLocation })
+      .from(repositories)
+      .where(eq(repositories.status, 'syncing'));
+
+    if (stuckSyncing.length > 0) {
+      console.log(`[Recovery] Found ${stuckSyncing.length} repositories stuck in 'syncing' state`);
+      
+      // Reset to 'mirrored' or 'imported' based on whether they have a mirrored location
+      for (const repo of stuckSyncing) {
+        const newStatus = repo.mirroredLocation ? 'mirrored' : 'imported';
+        await db
+          .update(repositories)
+          .set({
+            status: newStatus,
+            errorMessage: 'Reset from stuck syncing state after container restart',
+            updatedAt: new Date(),
+          })
+          .where(eq(repositories.id, repo.id));
+      }
+
+      console.log(`[Recovery] Reset ${stuckSyncing.length} repos from 'syncing' state`);
+    }
+
+    if (stuckMirroring.length === 0 && stuckSyncing.length === 0) {
+      console.log('[Recovery] No stuck repositories found');
+    }
+  } catch (error) {
+    console.error('[Recovery] Error resetting stuck repositories:', error);
+  }
+}
+
+/**
  * Initialize the recovery system with enhanced error handling and resilience
  * This should be called when the application starts
  */
@@ -120,6 +181,9 @@ export async function initializeRecovery(options: {
 
       // Clean up stale jobs first
       await cleanupStaleJobs();
+
+      // Reset repositories stuck in transitional states
+      await resetStuckRepositories();
 
       // Find interrupted jobs
       const interruptedJobs = await findInterruptedJobs();
