@@ -874,6 +874,19 @@ export const mirrorGithubRepoToGitea = async ({
     console.log(`Repository ${repository.name} mirrored successfully as ${targetRepoName}`);
 
     // Mark repos as "mirrored" in DB
+    const newMirroredLocation = `${repoOwner}/${targetRepoName}`;
+    
+    // Log mirroredLocation change if it differs from previous value
+    if (repository.mirroredLocation && repository.mirroredLocation !== newMirroredLocation) {
+      console.warn(
+        `[MirroredLocation Change] ${repository.fullName}: "${repository.mirroredLocation}" -> "${newMirroredLocation}"`
+      );
+    } else if (!repository.mirroredLocation) {
+      console.log(
+        `[MirroredLocation Set] ${repository.fullName}: "${newMirroredLocation}"`
+      );
+    }
+    
     await db
       .update(repositories)
       .set({
@@ -881,7 +894,7 @@ export const mirrorGithubRepoToGitea = async ({
         updatedAt: new Date(),
         lastMirrored: new Date(),
         errorMessage: null,
-        mirroredLocation: `${repoOwner}/${targetRepoName}`,
+        mirroredLocation: newMirroredLocation,
         metadata: metadataUpdated
           ? serializeRepositoryMetadataState(metadataState)
           : repository.metadata ?? null,
@@ -1496,6 +1509,19 @@ export async function mirrorGitHubRepoToGiteaOrg({
     );
 
     // Mark repos as "mirrored" in DB
+    const newMirroredLocation = `${orgName}/${targetRepoName}`;
+    
+    // Log mirroredLocation change if it differs from previous value
+    if (repository.mirroredLocation && repository.mirroredLocation !== newMirroredLocation) {
+      console.warn(
+        `[MirroredLocation Change] ${repository.fullName}: "${repository.mirroredLocation}" -> "${newMirroredLocation}"`
+      );
+    } else if (!repository.mirroredLocation) {
+      console.log(
+        `[MirroredLocation Set] ${repository.fullName}: "${newMirroredLocation}"`
+      );
+    }
+    
     await db
       .update(repositories)
       .set({
@@ -1503,7 +1529,7 @@ export async function mirrorGitHubRepoToGiteaOrg({
         updatedAt: new Date(),
         lastMirrored: new Date(),
         errorMessage: null,
-        mirroredLocation: `${orgName}/${targetRepoName}`,
+        mirroredLocation: newMirroredLocation,
         metadata: metadataUpdated
           ? serializeRepositoryMetadataState(metadataState)
           : repository.metadata ?? null,
