@@ -5,6 +5,28 @@ All notable changes to the Gitea Mirror project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.11.0] - 2025-02-28
+
+### Added
+- Repository metadata sync (description, website, topics) to Gitea
+  - Gitea's migrate API ignores these fields, now PATCH/PUT after migration
+  - Topics synced via separate API endpoint
+  - Metadata updated on every sync operation, not just initial mirror
+- Stuck repository recovery on container restart
+  - Reset 'mirroring' repos to 'imported' for re-mirroring
+  - Reset 'syncing' repos to 'mirrored' or 'imported' based on state
+- Script to find and delete orphan repos in Gitea (`scripts/find-gitea-orphans.sh`)
+
+### Fixed
+- Starred repos incorrectly mirrored to GitHub org instead of 'starred' org during recovery
+- Interrupted jobs with `inProgress=false` not being picked up by recovery
+- Rate limit log messages now show actual repo names instead of URL templates
+- Added `homepage` and `topics` fields to repository schema
+
+### Changed
+- Recovery system now runs stuck repository reset before job recovery
+- `findInterruptedJobs()` now also finds jobs with `status=mirroring` and `completedAt=NULL`
+
 ## [3.10.0] - 2025-02-28
 
 ### Added
