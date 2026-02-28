@@ -253,6 +253,8 @@ export async function getGithubRepositories({
 
       language: repo.language,
       description: repo.description,
+      homepage: repo.homepage,
+      topics: repo.topics,
       defaultBranch: repo.default_branch,
       visibility: (repo.visibility ?? "public") as GitRepo["visibility"],
 
@@ -317,6 +319,8 @@ export async function getGithubStarredRepositories({
 
       language: repo.language,
       description: repo.description,
+      homepage: repo.homepage,
+      topics: repo.topics,
       defaultBranch: repo.default_branch,
       visibility: (repo.visibility ?? "public") as GitRepo["visibility"],
 
@@ -445,6 +449,8 @@ export async function getGithubOrganizationRepositories({
 
       language: repo.language,
       description: repo.description,
+      homepage: repo.homepage,
+      topics: repo.topics,
       defaultBranch: repo.default_branch ?? "main",
       visibility: (repo.visibility ?? "public") as GitRepo["visibility"],
 

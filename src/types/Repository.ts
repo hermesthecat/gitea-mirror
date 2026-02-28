@@ -66,6 +66,8 @@ export interface GitRepo {
 
   language?: string | null;
   description?: string | null;
+  homepage?: string | null;
+  topics?: string[] | null;
   defaultBranch: string;
   visibility: RepositoryVisibility;
 

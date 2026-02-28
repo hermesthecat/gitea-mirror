@@ -673,6 +673,50 @@ export const mirrorGithubRepoToGitea = async ({
       }
     }
 
+    // Sync repository metadata (description, website, topics)
+    // Gitea's migrate API ignores these fields, so we need to PATCH them after migration
+    try {
+      const patchData: Record<string, unknown> = {};
+      if (repository.description?.trim()) {
+        patchData.description = repository.description.trim();
+      }
+      if (repository.homepage?.trim()) {
+        patchData.website = repository.homepage.trim();
+      }
+      if (Object.keys(patchData).length > 0) {
+        await httpPatch(
+          `${config.giteaConfig.url}/api/v1/repos/${repoOwner}/${targetRepoName}`,
+          patchData,
+          { Authorization: `token ${decryptedConfig.giteaConfig.token}` }
+        );
+        console.log(`[Mirror] Synced metadata (description/website) for ${repoOwner}/${targetRepoName}`);
+      }
+      // Sync topics separately (different API endpoint)
+      // Topics may be stored as JSON string in DB or as array from GitHub API
+      let topicsArray: string[] = [];
+      if (repository.topics) {
+        if (typeof repository.topics === 'string') {
+          try {
+            topicsArray = JSON.parse(repository.topics);
+          } catch {
+            topicsArray = [];
+          }
+        } else if (Array.isArray(repository.topics)) {
+          topicsArray = repository.topics;
+        }
+      }
+      if (topicsArray.length > 0) {
+        await httpPut(
+          `${config.giteaConfig.url}/api/v1/repos/${repoOwner}/${targetRepoName}/topics`,
+          { topics: topicsArray },
+          { Authorization: `token ${decryptedConfig.giteaConfig.token}` }
+        );
+        console.log(`[Mirror] Synced ${topicsArray.length} topics for ${repoOwner}/${targetRepoName}`);
+      }
+    } catch (metadataError) {
+      console.warn(`[Mirror] Failed to sync metadata for ${repoOwner}/${targetRepoName}:`, metadataError);
+    }
+
     const metadataState = parseRepositoryMetadataState(repository.metadata);
     let metadataUpdated = false;
     const skipMetadataForStarred =
@@ -1300,6 +1344,50 @@ export async function mirrorGitHubRepoToGiteaOrg({
       } catch (patchError) {
         console.warn(`[Mirror] Failed to enable releases feature for ${orgName}/${targetRepoName}:`, patchError);
       }
+    }
+
+    // Sync repository metadata (description, website, topics)
+    // Gitea's migrate API ignores these fields, so we need to PATCH them after migration
+    try {
+      const patchData: Record<string, unknown> = {};
+      if (repository.description?.trim()) {
+        patchData.description = repository.description.trim();
+      }
+      if (repository.homepage?.trim()) {
+        patchData.website = repository.homepage.trim();
+      }
+      if (Object.keys(patchData).length > 0) {
+        await httpPatch(
+          `${config.giteaConfig.url}/api/v1/repos/${orgName}/${targetRepoName}`,
+          patchData,
+          { Authorization: `token ${decryptedConfig.giteaConfig.token}` }
+        );
+        console.log(`[Mirror] Synced metadata (description/website) for ${orgName}/${targetRepoName}`);
+      }
+      // Sync topics separately (different API endpoint)
+      // Topics may be stored as JSON string in DB or as array from GitHub API
+      let topicsArray: string[] = [];
+      if (repository.topics) {
+        if (typeof repository.topics === 'string') {
+          try {
+            topicsArray = JSON.parse(repository.topics);
+          } catch {
+            topicsArray = [];
+          }
+        } else if (Array.isArray(repository.topics)) {
+          topicsArray = repository.topics;
+        }
+      }
+      if (topicsArray.length > 0) {
+        await httpPut(
+          `${config.giteaConfig.url}/api/v1/repos/${orgName}/${targetRepoName}/topics`,
+          { topics: topicsArray },
+          { Authorization: `token ${decryptedConfig.giteaConfig.token}` }
+        );
+        console.log(`[Mirror] Synced ${topicsArray.length} topics for ${orgName}/${targetRepoName}`);
+      }
+    } catch (metadataError) {
+      console.warn(`[Mirror] Failed to sync metadata for ${orgName}/${targetRepoName}:`, metadataError);
     }
 
     const metadataState = parseRepositoryMetadataState(repository.metadata);

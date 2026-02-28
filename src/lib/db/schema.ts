@@ -146,6 +146,8 @@ export const repositorySchema = z.object({
   hasSubmodules: z.boolean().default(false),
   language: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  homepage: z.string().optional().nullable(),
+  topics: z.array(z.string()).optional().nullable(),
   defaultBranch: z.string(),
   visibility: z.enum(["public", "private", "internal"]).default("public"),
   status: z
@@ -372,6 +374,8 @@ export const repositories = sqliteTable("repositories", {
 
   language: text("language"),
   description: text("description"),
+  homepage: text("homepage"),
+  topics: text("topics"), // JSON array of topic strings
   defaultBranch: text("default_branch").notNull(),
   visibility: text("visibility").notNull().default("public"),
 
