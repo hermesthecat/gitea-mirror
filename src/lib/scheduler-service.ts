@@ -5,18 +5,80 @@
  */
 
 import { db, configs, repositories } from '@/lib/db';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and, or, lt, isNull } from 'drizzle-orm';
 import { syncGiteaRepo, mirrorGithubRepoToGitea } from '@/lib/gitea';
 import { getDecryptedGitHubToken } from '@/lib/utils/config-encryption';
-import { parseInterval, formatDuration } from '@/lib/utils/duration-parser';
+import { parseInterval, formatDuration, formatMillisecondsHuman } from '@/lib/utils/duration-parser';
 import type { Repository } from '@/lib/db/schema';
 import { repoStatusEnum, repositoryVisibilityEnum } from '@/types/Repository';
 import { mergeGitReposPreferStarred, normalizeGitRepoToInsert, calcBatchSizeForInsert } from '@/lib/repo-utils';
 import { isMirrorableGitHubRepo } from '@/lib/repo-eligibility';
 
+// Retry configuration constants
+const MAX_RETRY_COUNT = 3; // Maximum number of retries for failed repos
+const RETRY_BACKOFF_BASE_MS = 60 * 60 * 1000; // 1 hour base backoff
+const PERMANENT_FAILURE_PATTERNS = [
+  'All naming attempts resulted in conflicts',
+  'Unable to generate unique repository name',
+  'Repository does not exist',
+  'DMCA takedown',
+  'disabled by GitHub',
+];
+
 let schedulerInterval: NodeJS.Timeout | null = null;
 let isSchedulerRunning = false;
 let hasPerformedAutoStart = false; // Track if we've already done auto-start
+
+/**
+ * Check if an error message indicates a permanent failure that shouldn't be retried
+ */
+function isPermanentFailure(errorMessage: string | null | undefined): boolean {
+  if (!errorMessage) return false;
+  return PERMANENT_FAILURE_PATTERNS.some(pattern => 
+    errorMessage.toLowerCase().includes(pattern.toLowerCase())
+  );
+}
+
+/**
+ * Calculate exponential backoff delay for retry
+ * Returns the minimum time that must pass before next retry
+ */
+function calculateRetryBackoff(retryCount: number): number {
+  // Exponential backoff: 1h, 2h, 4h, 8h, etc.
+  return RETRY_BACKOFF_BASE_MS * Math.pow(2, retryCount);
+}
+
+/**
+ * Check if a repository is eligible for retry based on retry count and backoff
+ */
+function isEligibleForRetry(repo: { 
+  retryCount?: number | null; 
+  lastRetryAt?: Date | null;
+  errorMessage?: string | null;
+}): boolean {
+  const retryCount = repo.retryCount ?? 0;
+  
+  // Check if max retries exceeded
+  if (retryCount >= MAX_RETRY_COUNT) {
+    return false;
+  }
+  
+  // Check if it's a permanent failure
+  if (isPermanentFailure(repo.errorMessage)) {
+    return false;
+  }
+  
+  // Check if enough time has passed since last retry (exponential backoff)
+  if (repo.lastRetryAt) {
+    const backoffMs = calculateRetryBackoff(retryCount);
+    const timeSinceLastRetry = Date.now() - new Date(repo.lastRetryAt).getTime();
+    if (timeSinceLastRetry < backoffMs) {
+      return false;
+    }
+  }
+  
+  return true;
+}
 
 /**
  * Parse schedule interval with enhanced support for duration strings, cron, and numbers
@@ -214,8 +276,46 @@ async function runScheduledSync(config: any): Promise<void> {
             )
           );
 
-        if (reposNeedingMirror.length > 0) {
-          console.log(`[Scheduler] Found ${reposNeedingMirror.length} repositories that need initial mirroring`);
+        // Filter repos based on retry eligibility
+        const eligibleRepos = reposNeedingMirror.filter(repo => {
+          // New repos (imported/pending) are always eligible
+          if (repo.status === 'imported' || repo.status === 'pending') {
+            return true;
+          }
+          
+          // Failed repos need to pass retry eligibility check
+          if (repo.status === 'failed') {
+            const eligible = isEligibleForRetry({
+              retryCount: repo.retryCount,
+              lastRetryAt: repo.lastRetryAt,
+              errorMessage: repo.errorMessage,
+            });
+            
+            if (!eligible) {
+              const retryCount = repo.retryCount ?? 0;
+              if (retryCount >= MAX_RETRY_COUNT) {
+                console.log(`[Scheduler] Skipping ${repo.fullName}: max retries (${MAX_RETRY_COUNT}) exceeded`);
+              } else if (isPermanentFailure(repo.errorMessage)) {
+                console.log(`[Scheduler] Skipping ${repo.fullName}: permanent failure detected`);
+              } else if (repo.lastRetryAt) {
+                const backoffMs = calculateRetryBackoff(retryCount);
+                const timeUntilRetry = backoffMs - (Date.now() - new Date(repo.lastRetryAt).getTime());
+                console.log(`[Scheduler] Skipping ${repo.fullName}: backoff not elapsed (${formatMillisecondsHuman(timeUntilRetry)} remaining)`);
+              }
+            }
+            return eligible;
+          }
+          
+          return true;
+        });
+
+        const skippedCount = reposNeedingMirror.length - eligibleRepos.length;
+        if (skippedCount > 0) {
+          console.log(`[Scheduler] Skipped ${skippedCount} repositories due to retry limits or backoff`);
+        }
+
+        if (eligibleRepos.length > 0) {
+          console.log(`[Scheduler] Found ${eligibleRepos.length} repositories eligible for mirroring`);
 
           // Prepare Octokit client
           const decryptedToken = getDecryptedGitHubToken(config);
@@ -225,13 +325,30 @@ async function runScheduledSync(config: any): Promise<void> {
           // Process repositories in batches
           const batchSize = scheduleConfig.batchSize || 10;
           const pauseBetweenBatches = scheduleConfig.pauseBetweenBatches || 2000;
-          for (let i = 0; i < reposNeedingMirror.length; i += batchSize) {
-            const batch = reposNeedingMirror.slice(i, Math.min(i + batchSize, reposNeedingMirror.length));
-            console.log(`[Scheduler] Auto-mirror batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(reposNeedingMirror.length / batchSize)} (${batch.length} repos)`);
+          for (let i = 0; i < eligibleRepos.length; i += batchSize) {
+            const batch = eligibleRepos.slice(i, Math.min(i + batchSize, eligibleRepos.length));
+            console.log(`[Scheduler] Auto-mirror batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(eligibleRepos.length / batchSize)} (${batch.length} repos)`);
 
             await Promise.all(
               batch.map(async (repo) => {
+                const isRetry = repo.status === 'failed';
+                const currentRetryCount = repo.retryCount ?? 0;
+                
                 try {
+                  // Update retry tracking before attempting
+                  if (isRetry) {
+                    await db
+                      .update(repositories)
+                      .set({
+                        retryCount: currentRetryCount + 1,
+                        lastRetryAt: new Date(),
+                        updatedAt: new Date(),
+                      })
+                      .where(eq(repositories.id, repo.id));
+                    
+                    console.log(`[Scheduler] Retrying ${repo.fullName} (attempt ${currentRetryCount + 1}/${MAX_RETRY_COUNT})`);
+                  }
+                  
                   const repository: Repository = {
                     ...repo,
                     status: repoStatusEnum.parse(repo.status),
@@ -244,21 +361,40 @@ async function runScheduledSync(config: any): Promise<void> {
                   };
 
                   await mirrorGithubRepoToGitea({ octokit, repository, config });
-                  console.log(`[Scheduler] Auto-mirrored repository: ${repo.fullName}`);
+                  
+                  // Reset retry count on success
+                  await db
+                    .update(repositories)
+                    .set({
+                      retryCount: 0,
+                      lastRetryAt: null,
+                      updatedAt: new Date(),
+                    })
+                    .where(eq(repositories.id, repo.id));
+                  
+                  console.log(`[Scheduler] Auto-mirrored repository: ${repo.fullName}${isRetry ? ' (retry successful)' : ''}`);
                 } catch (error) {
-                  console.error(`[Scheduler] Failed to auto-mirror repository ${repo.fullName}:`, error);
+                  const errorMessage = error instanceof Error ? error.message : String(error);
+                  console.error(`[Scheduler] Failed to auto-mirror repository ${repo.fullName}:`, errorMessage);
+                  
+                  // Check if this is now a permanent failure
+                  if (isPermanentFailure(errorMessage)) {
+                    console.warn(`[Scheduler] ${repo.fullName} marked as permanent failure - will not retry`);
+                  } else if (currentRetryCount + 1 >= MAX_RETRY_COUNT) {
+                    console.warn(`[Scheduler] ${repo.fullName} reached max retries (${MAX_RETRY_COUNT}) - will not retry`);
+                  }
                 }
               })
             );
 
             // Pause between batches if configured
-            if (i + batchSize < reposNeedingMirror.length) {
+            if (i + batchSize < eligibleRepos.length) {
               console.log(`[Scheduler] Pausing for ${pauseBetweenBatches}ms before next auto-mirror batch...`);
               await new Promise(resolve => setTimeout(resolve, pauseBetweenBatches));
             }
           }
         } else {
-          console.log(`[Scheduler] No repositories need initial mirroring`);
+          console.log(`[Scheduler] No repositories eligible for mirroring`);
         }
       } catch (mirrorError) {
         console.error(`[Scheduler] Error during auto-mirror phase for user ${userId}:`, mirrorError);

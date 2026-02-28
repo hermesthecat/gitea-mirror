@@ -165,6 +165,8 @@ export const repositorySchema = z.object({
     .default("imported"),
   lastMirrored: z.coerce.date().optional().nullable(),
   errorMessage: z.string().optional().nullable(),
+  retryCount: z.number().default(0),
+  lastRetryAt: z.coerce.date().optional().nullable(),
   destinationOrg: z.string().optional().nullable(),
   metadata: z.string().optional().nullable(), // JSON string for metadata sync state
   createdAt: z.coerce.date(),
@@ -376,6 +378,10 @@ export const repositories = sqliteTable("repositories", {
   status: text("status").notNull().default("imported"),
   lastMirrored: integer("last_mirrored", { mode: "timestamp" }),
   errorMessage: text("error_message"),
+  
+  // Retry tracking for failed mirror operations
+  retryCount: integer("retry_count").notNull().default(0),
+  lastRetryAt: integer("last_retry_at", { mode: "timestamp" }),
   
   destinationOrg: text("destination_org"),
 
