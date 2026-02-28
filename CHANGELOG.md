@@ -5,6 +5,30 @@ All notable changes to the Gitea Mirror project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.10.0] - 2025-02-28
+
+### Added
+- Retry tracking with exponential backoff for failed mirror operations
+  - Maximum 3 retries per repository
+  - Exponential backoff: 1h, 2h, 4h between retries
+  - Permanent failure detection (DMCA, naming conflicts, etc.)
+- Gitea server health check in `/api/health` endpoint
+  - Reports Gitea connectivity, version, and response time
+  - Detects timeout issues (>10s threshold)
+- Detailed logging for `mirroredLocation` changes
+- Cleanup scripts for duplicate starred repositories
+
+### Fixed
+- Duplicate starred repository creation on timeout errors
+  - Preserve existing `mirroredLocation` on retry instead of generating new names
+  - Return 'timeout' status from `isRepoPresentInGitea` instead of false
+  - Throw error in `generateUniqueRepoName` on timeout instead of trying new names
+- Shell script now queries database dynamically instead of hardcoded repo list
+
+### Changed
+- Health endpoint now includes Gitea status in overall health assessment
+- System marked as 'degraded' when Gitea is unresponsive
+
 ## [3.9.13] - 2025-02-25
 
 ### Fixed
