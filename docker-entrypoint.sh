@@ -159,30 +159,6 @@ else
   echo "⚠️  Environment configuration loading completed with warnings"
 fi
 
-# Run startup recovery to handle any interrupted jobs
-echo "Running startup recovery..."
-if [ -f "dist/scripts/startup-recovery.js" ]; then
-  echo "Running startup recovery using compiled script..."
-  bun dist/scripts/startup-recovery.js --timeout=30000
-  RECOVERY_EXIT_CODE=$?
-elif [ -f "scripts/startup-recovery.ts" ]; then
-  echo "Running startup recovery using TypeScript script..."
-  bun scripts/startup-recovery.ts --timeout=30000
-  RECOVERY_EXIT_CODE=$?
-else
-  echo "Warning: Startup recovery script not found. Skipping recovery."
-  RECOVERY_EXIT_CODE=0
-fi
-
-# Log recovery result
-if [ $RECOVERY_EXIT_CODE -eq 0 ]; then
-  echo "✅ Startup recovery completed successfully"
-elif [ $RECOVERY_EXIT_CODE -eq 1 ]; then
-  echo "⚠️  Startup recovery completed with warnings"
-else
-  echo "❌ Startup recovery failed with exit code $RECOVERY_EXIT_CODE"
-fi
-
 # Run repository status repair to fix any inconsistent mirroring states
 echo "Running repository status repair..."
 if [ -f "dist/scripts/repair-mirrored-repos.js" ]; then
@@ -222,6 +198,28 @@ trap 'shutdown_handler' TERM INT HUP
 echo "Starting Gitea Mirror..."
 bun ./dist/server/entry.mjs &
 APP_PID=$!
+
+# Wait for server to be ready before running recovery
+echo "Waiting for server to be ready..."
+sleep 5
+
+# Run startup recovery in background after server is up
+echo "Running startup recovery in background..."
+(
+  if [ -f "dist/scripts/startup-recovery.js" ]; then
+    bun dist/scripts/startup-recovery.js --timeout=30000
+  elif [ -f "scripts/startup-recovery.ts" ]; then
+    bun scripts/startup-recovery.ts --timeout=30000
+  fi
+  RECOVERY_EXIT_CODE=$?
+  if [ $RECOVERY_EXIT_CODE -eq 0 ]; then
+    echo "✅ Startup recovery completed successfully"
+  elif [ $RECOVERY_EXIT_CODE -eq 1 ]; then
+    echo "⚠️  Startup recovery completed with warnings"
+  else
+    echo "❌ Startup recovery failed with exit code $RECOVERY_EXIT_CODE"
+  fi
+) &
 
 # Wait for the application to finish
 wait "$APP_PID"
