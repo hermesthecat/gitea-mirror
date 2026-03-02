@@ -160,7 +160,25 @@ export function createGitHubClient(token: string, userId?: string, username?: st
         const message = error.message || "";
         
         if (message.includes("rate limit") || message.includes("API rate limit")) {
-          console.error(`[GitHub] Rate limit error for user ${userId}: ${message}`);
+          // Calculate wait time from response headers
+          let waitTimeMessage = "";
+          if (error.response?.headers) {
+            const resetTimestamp = error.response.headers["x-ratelimit-reset"];
+            const retryAfter = error.response.headers["retry-after"];
+            
+            if (retryAfter) {
+              const waitSeconds = parseInt(retryAfter, 10);
+              waitTimeMessage = ` Wait time: ${formatSecondsHuman(waitSeconds)}`;
+            } else if (resetTimestamp) {
+              const resetTime = new Date(parseInt(resetTimestamp, 10) * 1000);
+              const waitMs = resetTime.getTime() - Date.now();
+              if (waitMs > 0) {
+                waitTimeMessage = ` Resets at: ${resetTime.toLocaleTimeString()} (in ${formatSecondsHuman(Math.ceil(waitMs / 1000))})`;
+              }
+            }
+          }
+          
+          console.error(`[GitHub] Rate limit exceeded for user ${userId}.${waitTimeMessage}`);
           
           // Update rate limit status from error response (if available)
           if (error.response?.headers && RateLimitManager) {
@@ -177,7 +195,7 @@ export function createGitHubClient(token: string, userId?: string, username?: st
               provider: "github",
               error: message,
               endpoint: options.url,
-              message: `Rate limit exceeded: ${message}`,
+              message: `Rate limit exceeded.${waitTimeMessage}`,
             },
           });
           }

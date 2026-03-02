@@ -146,10 +146,10 @@ async function runScheduledSync(config: any): Promise<void> {
         const { v4: uuidv4 } = await import('uuid');
         const { getDecryptedGitHubToken } = await import('@/lib/utils/config-encryption');
         
-        // Create GitHub client
+        // Create GitHub client with rate limit handling
         const decryptedToken = getDecryptedGitHubToken(config);
-        const { Octokit } = await import('@octokit/rest');
-        const octokit = new Octokit({ auth: decryptedToken });
+        const { createGitHubClient } = await import('@/lib/github');
+        const octokit = createGitHubClient(decryptedToken, userId, config.githubConfig?.username);
         
         // Fetch GitHub data
         const [basicAndForkedRepos, starredRepos] = await Promise.all([
@@ -317,10 +317,10 @@ async function runScheduledSync(config: any): Promise<void> {
         if (eligibleRepos.length > 0) {
           console.log(`[Scheduler] Found ${eligibleRepos.length} repositories eligible for mirroring`);
 
-          // Prepare Octokit client
+          // Prepare Octokit client with rate limit handling
           const decryptedToken = getDecryptedGitHubToken(config);
-          const { Octokit } = await import('@octokit/rest');
-          const octokit = new Octokit({ auth: decryptedToken });
+          const { createGitHubClient } = await import('@/lib/github');
+          const octokit = createGitHubClient(decryptedToken, userId, config.githubConfig?.username);
 
           // Process repositories in batches
           const batchSize = scheduleConfig.batchSize || 10;
@@ -582,10 +582,10 @@ async function performInitialAutoStart(): Promise<void> {
         const { getGithubRepositories, getGithubStarredRepositories } = await import('@/lib/github');
         const { v4: uuidv4 } = await import('uuid');
         
-        // Create GitHub client
+        // Create GitHub client with rate limit handling
         const decryptedToken = getDecryptedGitHubToken(config);
-        const { Octokit } = await import('@octokit/rest');
-        const octokit = new Octokit({ auth: decryptedToken });
+        const { createGitHubClient } = await import('@/lib/github');
+        const octokit = createGitHubClient(decryptedToken, config.userId, config.githubConfig?.username);
         
         // Fetch GitHub data
         const [basicAndForkedRepos, starredRepos] = await Promise.all([
