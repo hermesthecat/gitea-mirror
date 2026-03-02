@@ -179,6 +179,111 @@ export const getGiteaRepoOwner = ({
   }
 };
 
+/**
+ * Find an existing mirror in Gitea by its original GitHub URL
+ * This prevents creating duplicate mirrors of the same GitHub repo
+ */
+export const findExistingMirrorByOriginalUrl = async ({
+  config,
+  orgName,
+  githubFullName,
+}: {
+  config: Partial<Config>;
+  orgName: string;
+  githubFullName: string; // Format: owner/repo
+}): Promise<{ found: boolean; repoName?: string } | 'timeout'> => {
+  try {
+    if (!config.giteaConfig?.url || !config.giteaConfig?.token) {
+      throw new Error("Gitea config is required.");
+    }
+
+    const decryptedConfig = decryptConfigTokens(config as Config);
+    const expectedOriginalUrl = `https://github.com/${githubFullName}.git`;
+
+    // Fetch all repos in the org and check original_url
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      // Paginate through all repos in the org
+      let page = 1;
+      const limit = 50;
+      
+      while (true) {
+        const response = await fetch(
+          `${config.giteaConfig.url}/api/v1/orgs/${orgName}/repos?limit=${limit}&page=${page}`,
+          {
+            headers: {
+              Authorization: `token ${decryptedConfig.giteaConfig.token}`,
+            },
+            signal: controller.signal,
+          }
+        );
+
+        if (!response.ok) {
+          clearTimeout(timeoutId);
+          if (response.status === 404) {
+            // Org doesn't exist yet
+            return { found: false };
+          }
+          console.warn(`[Gitea] Failed to fetch repos for org ${orgName}: ${response.status}`);
+          return { found: false };
+        }
+
+        const repos = await response.json();
+        
+        if (!Array.isArray(repos) || repos.length === 0) {
+          break;
+        }
+
+        // Check each repo's original_url
+        for (const repo of repos) {
+          if (repo.mirror && repo.original_url === expectedOriginalUrl) {
+            clearTimeout(timeoutId);
+            console.log(
+              `[Duplicate Prevention] Found existing mirror for ${githubFullName}: ${orgName}/${repo.name}`
+            );
+            return { found: true, repoName: repo.name };
+          }
+        }
+
+        if (repos.length < limit) {
+          break;
+        }
+        page++;
+      }
+
+      clearTimeout(timeoutId);
+      return { found: false };
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError instanceof Error && 
+          (fetchError.name === 'AbortError' || 
+           fetchError.message.includes('timeout') ||
+           fetchError.message.includes('aborted'))) {
+        console.warn(`[Gitea] Timeout checking for existing mirror: ${githubFullName}`);
+        return 'timeout';
+      }
+      
+      throw fetchError;
+    }
+  } catch (error) {
+    if (error instanceof Error && 
+        (error.name === 'AbortError' || 
+         error.message.includes('timeout') ||
+         error.message.includes('aborted') ||
+         error.message.includes('ETIMEDOUT') ||
+         error.message.includes('ECONNRESET'))) {
+      console.warn(`[Gitea] Network timeout checking for existing mirror: ${githubFullName}`);
+      return 'timeout';
+    }
+    
+    console.error("Error checking for existing mirror in Gitea:", error);
+    return { found: false };
+  }
+};
+
 export const isRepoPresentInGitea = async ({
   config,
   owner,
@@ -442,6 +547,7 @@ export const mirrorGithubRepoToGitea = async ({
         baseName: repository.name,
         githubOwner,
         strategy: config.githubConfig.starredDuplicateStrategy,
+        githubFullName: repository.fullName,
       });
 
       if (targetRepoName !== repository.name) {
@@ -1022,6 +1128,7 @@ export async function getOrCreateGiteaOrg({
 
 /**
  * Generate a unique repository name for starred repos with duplicate names
+ * Now also checks if a mirror for the same GitHub repo already exists
  */
 async function generateUniqueRepoName({
   config,
@@ -1029,16 +1136,39 @@ async function generateUniqueRepoName({
   baseName,
   githubOwner,
   strategy,
+  githubFullName,
 }: {
   config: Partial<Config>;
   orgName: string;
   baseName: string;
   githubOwner: string;
   strategy?: string;
+  githubFullName: string; // Full GitHub repo name (owner/repo)
 }): Promise<string> {
   const duplicateStrategy = strategy || "suffix";
 
-  // First check if base name is available
+  // DUPLICATE PREVENTION: First check if a mirror for this exact GitHub repo already exists
+  const existingMirror = await findExistingMirrorByOriginalUrl({
+    config,
+    orgName,
+    githubFullName,
+  });
+
+  if (existingMirror === 'timeout') {
+    throw new Error(
+      `Cannot check for existing mirror of "${githubFullName}" due to timeout. ` +
+      `Please retry later when Gitea server is responsive.`
+    );
+  }
+
+  if (existingMirror.found && existingMirror.repoName) {
+    console.log(
+      `[Duplicate Prevention] Reusing existing mirror name for ${githubFullName}: ${existingMirror.repoName}`
+    );
+    return existingMirror.repoName;
+  }
+
+  // Check if base name is available
   const baseExists = await isRepoPresentInGitea({
     config,
     owner: orgName,
@@ -1181,6 +1311,7 @@ export async function mirrorGitHubRepoToGiteaOrg({
         baseName: repository.name,
         githubOwner,
         strategy: config.githubConfig.starredDuplicateStrategy,
+        githubFullName: repository.fullName,
       });
 
       if (targetRepoName !== repository.name) {
