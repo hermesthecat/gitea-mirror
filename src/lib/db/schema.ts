@@ -171,6 +171,9 @@ export const repositorySchema = z.object({
   lastRetryAt: z.coerce.date().optional().nullable(),
   destinationOrg: z.string().optional().nullable(),
   metadata: z.string().optional().nullable(), // JSON string for metadata sync state
+  // Custom source support
+  sourceType: z.enum(["github", "gitlab", "gitea", "git"]).default("github"),
+  sourceHost: z.string().optional().nullable(), // Host for credential lookup
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -390,6 +393,10 @@ export const repositories = sqliteTable("repositories", {
   destinationOrg: text("destination_org"),
 
   metadata: text("metadata"), // JSON string storing metadata sync state (issues, PRs, releases, etc.)
+
+  // Custom source support (non-GitHub repos)
+  sourceType: text("source_type").default("github"), // "github" | "gitlab" | "gitea" | "git"
+  sourceHost: text("source_host"), // Host for credential lookup (e.g., "gitlab.com", "code.example.org")
 
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
@@ -701,6 +708,42 @@ export const rateLimits = sqliteTable("rate_limits", {
   index("idx_rate_limits_status").on(table.status),
 ]);
 
+// ===== Git Credentials (for non-GitHub sources) =====
+
+export const gitCredentialSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  name: z.string(), // User-friendly name (e.g., "GitLab Work", "Personal Gitea")
+  host: z.string(), // Host for matching (e.g., "gitlab.com", "code.example.org")
+  sourceType: z.enum(["gitlab", "gitea", "git"]).default("git"),
+  username: z.string().optional(),
+  token: z.string().optional(), // Encrypted
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+export const gitCredentials = sqliteTable("git_credentials", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  name: text("name").notNull(),
+  host: text("host").notNull(),
+  sourceType: text("source_type").notNull().default("git"),
+  username: text("username"),
+  token: text("token"), // Encrypted with ENCRYPTION_SECRET
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, (table) => [
+  index("idx_git_credentials_user_id").on(table.userId),
+  index("idx_git_credentials_host").on(table.host),
+  uniqueIndex("uniq_git_credentials_user_host").on(table.userId, table.host),
+]);
+
 // Export type definitions
 export type User = z.infer<typeof userSchema>;
 export type Config = z.infer<typeof configSchema>;
@@ -709,3 +752,4 @@ export type MirrorJob = z.infer<typeof mirrorJobSchema>;
 export type Organization = z.infer<typeof organizationSchema>;
 export type Event = z.infer<typeof eventSchema>;
 export type RateLimit = z.infer<typeof rateLimitSchema>;
+export type GitCredential = z.infer<typeof gitCredentialSchema>;

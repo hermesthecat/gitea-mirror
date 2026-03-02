@@ -83,5 +83,6 @@ export {
   oauthAccessTokens,
   oauthConsent,
   ssoProviders,
-  rateLimits
+  rateLimits,
+  gitCredentials
 } from "./schema";

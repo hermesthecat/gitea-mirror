@@ -110,6 +110,50 @@ export const POST: APIRoute = async ({ request, locals }) => {
           // Log the start of mirroring
           console.log(`Starting mirror for repository: ${repo.name}`);
 
+          // Check if this is a custom (non-GitHub) repository
+          const sourceType = (repo as any).sourceType || "github";
+          
+          if (sourceType !== "github") {
+            // Handle custom repository mirror
+            const { mirrorCustomRepoToGitea } = await import("@/lib/gitea");
+            const { gitCredentials } = await import("@/lib/db");
+            const { decrypt } = await import("@/lib/utils/encryption");
+            const { eq, and } = await import("drizzle-orm");
+            
+            // Get credentials if available
+            let credentials: { username?: string; token?: string } | undefined;
+            const sourceHost = (repo as any).sourceHost;
+            
+            if (sourceHost) {
+              const [storedCred] = await db
+                .select()
+                .from(gitCredentials)
+                .where(
+                  and(
+                    eq(gitCredentials.userId, userId),
+                    eq(gitCredentials.host, sourceHost)
+                  )
+                )
+                .limit(1);
+              
+              if (storedCred) {
+                credentials = {
+                  username: storedCred.username || undefined,
+                  token: storedCred.token ? decrypt(storedCred.token) : undefined,
+                };
+              }
+            }
+            
+            await mirrorCustomRepoToGitea({
+              config,
+              repository: repoData,
+              credentials,
+            });
+            
+            return repo;
+          }
+
+          // GitHub repository - use existing logic
           // Determine where the repository should be mirrored (with organization overrides)
           const owner = await getGiteaRepoOwnerAsync({
             config,

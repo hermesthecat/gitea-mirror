@@ -1665,6 +1665,7 @@ export default function Repository() {
         onAddRepository={handleAddRepository}
         isDialogOpen={isDialogOpen}
         setIsDialogOpen={setIsDialogOpen}
+        onCustomRepoAdded={() => fetchRepositories(false)}
       />
 
       <Dialog

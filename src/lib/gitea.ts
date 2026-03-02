@@ -3569,3 +3569,205 @@ export async function archiveGiteaRepo(
     // Don't throw - we want cleanup to continue for other repos
   }
 }
+
+/**
+ * Mirror a custom (non-GitHub) repository to Gitea
+ * Supports GitLab, Gitea/Forgejo, and generic Git repositories
+ */
+export async function mirrorCustomRepoToGitea({
+  config,
+  repository,
+  credentials,
+}: {
+  config: Partial<Config>;
+  repository: Repository;
+  credentials?: { username?: string; token?: string };
+}) {
+  try {
+    if (!config.giteaConfig?.url || !config.giteaConfig?.token || !config.userId) {
+      throw new Error("Gitea config is required.");
+    }
+
+    const decryptedConfig = decryptConfigTokens(config as Config);
+
+    // Custom repos go to starred org by default
+    const starredOrg = config.githubConfig?.starredReposOrg || "starred";
+    
+    // Ensure org exists
+    const giteaOrgId = await getOrCreateGiteaOrg({
+      orgName: starredOrg,
+      config,
+    });
+
+    // Generate unique repo name if needed
+    let targetRepoName = repository.name;
+    
+    // Check if mirroredLocation already set
+    if (repository.mirroredLocation && repository.mirroredLocation.includes('/')) {
+      const [existingOwner, ...repoNameParts] = repository.mirroredLocation.split('/');
+      const existingRepoName = repoNameParts.join('/');
+      if (existingOwner === starredOrg && existingRepoName) {
+        targetRepoName = existingRepoName;
+        console.log(`[Custom Mirror] Using existing location: ${repository.mirroredLocation}`);
+      }
+    }
+
+    // Check for existing mirror with same original URL
+    const existingMirror = await findExistingMirrorByOriginalUrl({
+      config,
+      orgName: starredOrg,
+      githubFullName: repository.fullName,
+    });
+
+    if (existingMirror !== 'timeout' && existingMirror.found && existingMirror.repoName) {
+      console.log(`[Custom Mirror] Found existing mirror: ${starredOrg}/${existingMirror.repoName}`);
+      targetRepoName = existingMirror.repoName;
+      
+      // Update DB with correct location
+      await db
+        .update(repositories)
+        .set({
+          mirroredLocation: `${starredOrg}/${targetRepoName}`,
+          status: "mirrored",
+          updatedAt: new Date(),
+        })
+        .where(eq(repositories.id, repository.id!));
+      
+      return;
+    }
+
+    // Check if repo name already exists
+    const isExisting = await isRepoPresentInGitea({
+      config,
+      owner: starredOrg,
+      repoName: targetRepoName,
+    });
+
+    if (isExisting === true) {
+      // Generate unique name with source host as suffix
+      const sourceHost = repository.sourceHost || "custom";
+      const hostSuffix = sourceHost.split('.')[0]; // e.g., "gitlab" from "gitlab.com"
+      targetRepoName = `${repository.name}-${hostSuffix}`;
+      
+      // Check again
+      const stillExists = await isRepoPresentInGitea({
+        config,
+        owner: starredOrg,
+        repoName: targetRepoName,
+      });
+      
+      if (stillExists === true) {
+        // Add numeric suffix
+        let attempt = 1;
+        while (attempt < 10) {
+          const candidateName = `${repository.name}-${hostSuffix}-${attempt}`;
+          const exists = await isRepoPresentInGitea({
+            config,
+            owner: starredOrg,
+            repoName: candidateName,
+          });
+          if (exists !== true) {
+            targetRepoName = candidateName;
+            break;
+          }
+          attempt++;
+        }
+      }
+    }
+
+    const expectedLocation = `${starredOrg}/${targetRepoName}`;
+    console.log(`[Custom Mirror] Mirroring ${repository.cloneUrl} to ${expectedLocation}`);
+
+    // Update status to mirroring
+    await db
+      .update(repositories)
+      .set({
+        status: "mirroring",
+        mirroredLocation: expectedLocation,
+        updatedAt: new Date(),
+      })
+      .where(eq(repositories.id, repository.id!));
+
+    // Prepare migrate payload
+    const migratePayload: Record<string, any> = {
+      clone_addr: repository.cloneUrl,
+      uid: giteaOrgId,
+      repo_name: targetRepoName,
+      mirror: true,
+      mirror_interval: config.giteaConfig?.mirrorInterval || "8h",
+      wiki: false, // Custom repos typically don't have wiki
+      lfs: config.giteaConfig?.lfs || false,
+      private: repository.isPrivate,
+      description: repository.description || "",
+      service: "git", // Generic git service
+    };
+
+    // Add authentication if provided
+    if (credentials?.username || credentials?.token) {
+      if (credentials.username) {
+        migratePayload.auth_username = credentials.username;
+      }
+      if (credentials.token) {
+        migratePayload.auth_token = credentials.token;
+      }
+    }
+
+    // Call Gitea migrate API
+    const apiUrl = `${config.giteaConfig.url}/api/v1/repos/migrate`;
+    const response = await httpPost(apiUrl, migratePayload, {
+      Authorization: `token ${decryptedConfig.giteaConfig.token}`,
+      "Content-Type": "application/json",
+    });
+
+    if (response.status >= 400) {
+      const errorText = typeof response.data === 'string' 
+        ? response.data 
+        : JSON.stringify(response.data);
+      
+      // Check for "already exists" error
+      if (response.status === 409 || errorText.includes("already exists")) {
+        console.log(`[Custom Mirror] Repository ${targetRepoName} already exists in Gitea`);
+        await db
+          .update(repositories)
+          .set({
+            status: "mirrored",
+            mirroredLocation: expectedLocation,
+            errorMessage: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(repositories.id, repository.id!));
+        return;
+      }
+
+      throw new Error(`Gitea migrate failed: ${response.status} - ${errorText}`);
+    }
+
+    // Success
+    console.log(`[Custom Mirror] Successfully mirrored ${repository.fullName} to ${expectedLocation}`);
+    
+    await db
+      .update(repositories)
+      .set({
+        status: "mirrored",
+        mirroredLocation: expectedLocation,
+        errorMessage: null,
+        lastMirrored: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(repositories.id, repository.id!));
+
+  } catch (error) {
+    console.error(`[Custom Mirror] Failed to mirror ${repository.fullName}:`, error);
+    
+    await db
+      .update(repositories)
+      .set({
+        status: "failed",
+        errorMessage: error instanceof Error ? error.message : String(error),
+        updatedAt: new Date(),
+      })
+      .where(eq(repositories.id, repository.id!));
+
+    throw error;
+  }
+}
