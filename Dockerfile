@@ -7,12 +7,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # ----------------------------
-FROM base AS builder
-COPY package.json ./
-COPY bun.lock* ./
+FROM base AS deps
+COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile || (sleep 5 && bun install --frozen-lockfile) || (sleep 10 && bun install --frozen-lockfile)
 
-COPY . .
+# ----------------------------
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json bun.lock* ./
+COPY tsconfig.json astro.config.mjs drizzle.config.ts ./
+COPY src ./src
+COPY public ./public
+COPY scripts ./scripts
+COPY drizzle ./drizzle
+COPY docker-entrypoint.sh ./
+
 RUN bun run build
 RUN mkdir -p dist/scripts && \
   for script in scripts/*.ts; do \
@@ -21,8 +30,7 @@ RUN mkdir -p dist/scripts && \
 
 # ----------------------------
 FROM base AS pruner
-COPY package.json ./
-COPY bun.lock* ./
+COPY package.json bun.lock* ./
 RUN bun install --production --omit=peer --frozen-lockfile || (sleep 5 && bun install --production --omit=peer --frozen-lockfile) || (sleep 10 && bun install --production --omit=peer --frozen-lockfile)
 
 # ----------------------------
@@ -42,7 +50,6 @@ ENV HOST=0.0.0.0
 ENV PORT=4321
 ENV DATABASE_URL=file:data/gitea-mirror.db
 
-# Create directories and setup permissions
 RUN mkdir -p /app/certs && \
   chmod +x ./docker-entrypoint.sh && \
   mkdir -p /app/data && \
