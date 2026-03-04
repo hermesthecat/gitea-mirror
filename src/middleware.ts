@@ -1,5 +1,4 @@
 import { defineMiddleware } from 'astro:middleware';
-import { initializeRecovery, hasJobsNeedingRecovery, getRecoveryStatus } from './lib/recovery';
 import { startCleanupService, stopCleanupService } from './lib/cleanup-service';
 import { startSchedulerService, stopSchedulerService } from './lib/scheduler-service';
 import { startRepositoryCleanupService, stopRepositoryCleanupService } from './lib/repository-cleanup-service';
@@ -10,9 +9,7 @@ import { isHeaderAuthEnabled, authenticateWithHeaders } from './lib/auth-header'
 import { initializeConfigFromEnv } from './lib/env-config-loader';
 import { db, users } from './lib/db';
 
-// Flag to track if recovery has been initialized
-let recoveryInitialized = false;
-let recoveryAttempted = false;
+// Flag to track if services have been initialized
 let cleanupServiceStarted = false;
 let schedulerServiceStarted = false;
 let repositoryCleanupServiceStarted = false;
@@ -109,55 +106,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  // Initialize recovery system only once when the server starts
-  // This is a fallback in case the startup script didn't run
-  if (!recoveryInitialized && !recoveryAttempted) {
-    recoveryAttempted = true;
-
-    try {
-      // Check if recovery is actually needed before attempting
-      const needsRecovery = await hasJobsNeedingRecovery();
-
-      if (needsRecovery) {
-        console.log('⚠️  Middleware detected jobs needing recovery (startup script may not have run)');
-        console.log('Attempting recovery from middleware...');
-
-        // Run recovery with a shorter timeout since this is during request handling
-        const recoveryResult = await Promise.race([
-          initializeRecovery({
-            skipIfRecentAttempt: true,
-            maxRetries: 2,
-            retryDelay: 3000,
-          }),
-          new Promise<boolean>((_, reject) => {
-            setTimeout(() => reject(new Error('Middleware recovery timeout')), 15000);
-          })
-        ]);
-
-        if (recoveryResult) {
-          console.log('✅ Middleware recovery completed successfully');
-        } else {
-          console.log('⚠️  Middleware recovery completed with some issues');
-        }
-      } else {
-        console.log('✅ No recovery needed (startup script likely handled it)');
-      }
-
-      recoveryInitialized = true;
-    } catch (error) {
-      console.error('⚠️  Middleware recovery failed or timed out:', error);
-      console.log('Application will continue, but some jobs may remain interrupted');
-
-      // Log recovery status for debugging
-      const status = getRecoveryStatus();
-      console.log('Recovery status:', status);
-
-      recoveryInitialized = true; // Mark as attempted to avoid retries
-    }
-  }
-
-  // Start cleanup service only once after recovery is complete
-  if (recoveryInitialized && !cleanupServiceStarted) {
+  // Start cleanup service only once
+  if (!cleanupServiceStarted) {
     try {
       console.log('Starting automatic database cleanup service...');
       startCleanupService();
@@ -175,8 +125,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  // Start scheduler service only once after recovery is complete
-  if (recoveryInitialized && !schedulerServiceStarted) {
+  // Start scheduler service only once
+  if (!schedulerServiceStarted) {
     try {
       console.log('Starting automatic mirror scheduler service...');
       // Start the scheduler service (now async)
@@ -197,8 +147,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  // Start repository cleanup service only once after recovery is complete
-  if (recoveryInitialized && !repositoryCleanupServiceStarted) {
+  // Start repository cleanup service only once
+  if (!repositoryCleanupServiceStarted) {
     try {
       console.log('Starting repository cleanup service...');
       startRepositoryCleanupService();
