@@ -3,7 +3,7 @@
  * This module handles detecting and resuming jobs that were interrupted by container restarts
  */
 
-import { findInterruptedJobs, resumeInterruptedJob } from './helpers';
+import { findInterruptedJobs, resumeInterruptedJob, createMirrorJob } from './helpers';
 import { db, repositories, organizations, mirrorJobs, configs } from './db';
 import { eq, and, lt, inArray, or } from 'drizzle-orm';
 import { mirrorGithubRepoToGitea, mirrorGitHubOrgRepoToGiteaOrg, syncGiteaRepo } from './gitea';
@@ -207,59 +207,52 @@ export async function initializeRecovery(options: {
 
       for (const job of interruptedJobs) {
         try {
-          const resumeData = await resumeInterruptedJob(job);
+          // Calculate remaining items
+          const remainingItemIds = (job.itemIds || []).filter(
+            (id: string) => !(job.completedItemIds || []).includes(id)
+          );
 
-          if (!resumeData) {
-            console.log(`Job ${job.id} could not be resumed. Marking as failed.`);
-            try {
-              await db.update(mirrorJobs).set({
-                inProgress: false,
-                completedAt: new Date(),
-                status: "failed",
-                message: "Job could not be resumed after interruption",
-              }).where(eq(mirrorJobs.id, job.id));
-            } catch (markError) {
-              console.error(`Failed to mark job ${job.id} as failed:`, markError);
-            }
-            failureCount++;
-            continue;
-          }
+          const completedCount = job.completedItemIds?.length || 0;
+          const totalCount = job.itemIds?.length || 0;
 
-          const { job: updatedJob, remainingItemIds } = resumeData;
+          // Close the old job as failed
+          await db.update(mirrorJobs).set({
+            inProgress: false,
+            completedAt: new Date(),
+            status: "failed",
+            message: `Job interrupted - ${completedCount}/${totalCount} items completed. Re-queued ${remainingItemIds.length} remaining items.`,
+          }).where(eq(mirrorJobs.id, job.id));
 
-          // Handle different job types
-          switch (updatedJob.jobType) {
-            case 'mirror':
-              await recoverMirrorJob(updatedJob, remainingItemIds);
-              break;
-            case 'sync':
-              await recoverSyncJob(updatedJob, remainingItemIds);
-              break;
-            case 'retry':
-              await recoverRetryJob(updatedJob, remainingItemIds);
-              break;
-            default:
-              console.log(`Unknown job type: ${updatedJob.jobType}`);
-              failureCount++;
-              continue;
+          // If there are remaining items, create a new pending job for them
+          if (remainingItemIds.length > 0) {
+            await createMirrorJob({
+              userId: job.userId,
+              jobType: job.jobType || 'mirror',
+              status: 'pending',
+              message: `Re-queued from interrupted job (${remainingItemIds.length} items)`,
+              itemIds: remainingItemIds,
+              totalItems: remainingItemIds.length,
+              inProgress: false,
+              skipDuplicateEvent: true,
+            });
+            console.log(`Job ${job.id}: closed as failed, re-queued ${remainingItemIds.length} remaining items as new job`);
+          } else {
+            console.log(`Job ${job.id}: closed as failed, no remaining items to re-queue`);
           }
 
           successCount++;
         } catch (jobError) {
-          console.error(`Error recovering individual job ${job.id}:`, jobError);
+          console.error(`Error recovering job ${job.id}:`, jobError);
           failureCount++;
 
-          // Mark the job as failed if recovery fails
+          // Mark the job as failed if re-queue fails
           try {
-            await db
-              .update(mirrorJobs)
-              .set({
-                inProgress: false,
-                completedAt: new Date(),
-                status: "failed",
-                message: `Job recovery failed: ${jobError instanceof Error ? jobError.message : String(jobError)}`
-              })
-              .where(eq(mirrorJobs.id, job.id));
+            await db.update(mirrorJobs).set({
+              inProgress: false,
+              completedAt: new Date(),
+              status: "failed",
+              message: `Job recovery failed: ${jobError instanceof Error ? jobError.message : String(jobError)}`
+            }).where(eq(mirrorJobs.id, job.id));
           } catch (updateError) {
             console.error(`Failed to mark job ${job.id} as failed:`, updateError);
           }
