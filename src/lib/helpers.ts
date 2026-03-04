@@ -1,6 +1,6 @@
 import type { RepoStatus } from "@/types/Repository";
 import { db, mirrorJobs } from "./db";
-import { eq, and, or, lt, isNull } from "drizzle-orm";
+import { eq, and, or, lt, isNull, isNotNull } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { publishEvent } from "./events";
 
@@ -235,7 +235,8 @@ export async function findInterruptedJobs() {
           and(
             eq(mirrorJobs.inProgress, false),
             isNull(mirrorJobs.completedAt),
-            eq(mirrorJobs.status, 'mirroring')
+            eq(mirrorJobs.status, 'mirroring'),
+            isNotNull(mirrorJobs.itemIds)
           )
         )
       );
