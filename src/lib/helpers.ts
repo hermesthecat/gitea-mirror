@@ -269,15 +269,13 @@ export async function resumeInterruptedJob(job: any) {
     if (!job.itemIds || !job.completedItemIds) {
       console.log(`Cannot resume job ${job.id}: missing item data`);
 
-      // Mark the job as failed
-      await updateMirrorJobProgress({
-        jobId: job.id,
+      // Mark the job as failed directly (bypass publishEvent which may fail in recovery context)
+      await db.update(mirrorJobs).set({
+        inProgress: false,
+        completedAt: new Date(),
         status: "failed",
         message: "Job interrupted and could not be resumed",
-        details: "The job was interrupted and did not have enough information to resume",
-        inProgress: false,
-        isCompleted: true,
-      });
+      }).where(eq(mirrorJobs.id, job.id));
 
       return null;
     }
@@ -290,14 +288,13 @@ export async function resumeInterruptedJob(job: any) {
     if (remainingItemIds.length === 0) {
       console.log(`Job ${job.id} has no remaining items, marking as completed`);
 
-      // Mark the job as completed
-      await updateMirrorJobProgress({
-        jobId: job.id,
+      // Mark the job as completed directly (bypass publishEvent which may fail in recovery context)
+      await db.update(mirrorJobs).set({
+        inProgress: false,
+        completedAt: new Date(),
         status: "mirrored",
         message: "Job completed after resuming",
-        inProgress: false,
-        isCompleted: true,
-      });
+      }).where(eq(mirrorJobs.id, job.id));
 
       return null;
     }

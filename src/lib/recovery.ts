@@ -210,7 +210,17 @@ export async function initializeRecovery(options: {
           const resumeData = await resumeInterruptedJob(job);
 
           if (!resumeData) {
-            console.log(`Job ${job.id} could not be resumed.`);
+            console.log(`Job ${job.id} could not be resumed. Marking as failed.`);
+            try {
+              await db.update(mirrorJobs).set({
+                inProgress: false,
+                completedAt: new Date(),
+                status: "failed",
+                message: "Job could not be resumed after interruption",
+              }).where(eq(mirrorJobs.id, job.id));
+            } catch (markError) {
+              console.error(`Failed to mark job ${job.id} as failed:`, markError);
+            }
             failureCount++;
             continue;
           }
