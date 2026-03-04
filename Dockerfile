@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.4
-
 FROM oven/bun:1.3.9-debian AS base
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
