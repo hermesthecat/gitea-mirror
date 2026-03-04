@@ -2,22 +2,30 @@ import { defineMiddleware } from 'astro:middleware';
 import { startCleanupService, stopCleanupService } from './lib/cleanup-service';
 import { startSchedulerService, stopSchedulerService } from './lib/scheduler-service';
 import { startRepositoryCleanupService, stopRepositoryCleanupService } from './lib/repository-cleanup-service';
-import { initializeShutdownManager, registerShutdownCallback } from './lib/shutdown-manager';
+import { initializeShutdownManager, registerShutdownCallback, isShuttingDown } from './lib/shutdown-manager';
 import { setupSignalHandlers } from './lib/signal-handlers';
 import { auth } from './lib/auth';
 import { isHeaderAuthEnabled, authenticateWithHeaders } from './lib/auth-header';
 import { initializeConfigFromEnv } from './lib/env-config-loader';
 import { db, users } from './lib/db';
 
+// Initialize shutdown manager and signal handlers at module load (not waiting for first request)
+initializeShutdownManager();
+setupSignalHandlers();
+
 // Flag to track if services have been initialized
 let cleanupServiceStarted = false;
 let schedulerServiceStarted = false;
 let repositoryCleanupServiceStarted = false;
-let shutdownManagerInitialized = false;
 let envConfigInitialized = false;
 let envConfigCheckCount = 0; // Track attempts to avoid excessive checking
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  // Reject new requests during shutdown
+  if (isShuttingDown()) {
+    return new Response('Service is shutting down', { status: 503 });
+  }
+
   // First, try Better Auth session (cookie-based)
   try {
     const session = await auth.api.getSession({
@@ -62,20 +70,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
     // If there's an error getting the session, set to null
     context.locals.user = null;
     context.locals.session = null;
-  }
-
-  // Initialize shutdown manager and signal handlers first
-  if (!shutdownManagerInitialized) {
-    try {
-      console.log('🔧 Initializing shutdown manager and signal handlers...');
-      initializeShutdownManager();
-      setupSignalHandlers();
-      shutdownManagerInitialized = true;
-      console.log('✅ Shutdown manager and signal handlers initialized');
-    } catch (error) {
-      console.error('❌ Failed to initialize shutdown manager:', error);
-      // Continue anyway - this shouldn't block the application
-    }
   }
 
   // Initialize configuration from environment variables

@@ -27,6 +27,7 @@ const PERMANENT_FAILURE_PATTERNS = [
 
 let schedulerInterval: NodeJS.Timeout | null = null;
 let isSchedulerRunning = false;
+let currentSyncPromise: Promise<void> | null = null;
 let hasPerformedAutoStart = false; // Track if we've already done auto-start
 
 /**
@@ -896,16 +897,20 @@ export async function startSchedulerService(): Promise<void> {
   }
   
   // Run immediately on start
-  schedulerLoop().catch(error => {
+  const initialRun = schedulerLoop().catch(error => {
     console.error('[Scheduler] Error during initial scheduler run:', error);
   });
+  currentSyncPromise = initialRun;
+  initialRun.finally(() => { if (currentSyncPromise === initialRun) currentSyncPromise = null; });
   
   // Run every minute to check for scheduled tasks
   const checkInterval = 60 * 1000; // 1 minute
   schedulerInterval = setInterval(() => {
-    schedulerLoop().catch(error => {
+    const run = schedulerLoop().catch(error => {
       console.error('[Scheduler] Error during scheduler run:', error);
     });
+    currentSyncPromise = run;
+    run.finally(() => { if (currentSyncPromise === run) currentSyncPromise = null; });
   }, checkInterval);
   
   console.log(`[Scheduler] Scheduler service started, checking every ${formatDuration(checkInterval)} for scheduled tasks`);
@@ -915,11 +920,21 @@ export async function startSchedulerService(): Promise<void> {
 /**
  * Stop the scheduler service
  */
-export function stopSchedulerService(): void {
+export async function stopSchedulerService(): Promise<void> {
   if (schedulerInterval) {
     clearInterval(schedulerInterval);
     schedulerInterval = null;
     console.log('[Scheduler] Scheduler service stopped');
+  }
+
+  // Wait for current sync to finish (max 10s)
+  if (currentSyncPromise) {
+    console.log('[Scheduler] Waiting for current sync to finish...');
+    await Promise.race([
+      currentSyncPromise,
+      new Promise<void>(resolve => setTimeout(resolve, 10000)),
+    ]);
+    currentSyncPromise = null;
   }
 }
 

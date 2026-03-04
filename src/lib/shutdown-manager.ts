@@ -176,8 +176,13 @@ export async function gracefulShutdown(signal: string = 'UNKNOWN'): Promise<void
 
     // Step 3: Close database connections
     console.log('\n💾 Step 3: Closing database connections...');
-    // Note: Drizzle with bun:sqlite doesn't require explicit connection closing
-    // but we'll add this for completeness and future database changes
+    try {
+      const { closeDatabase } = await import('./db/adapter');
+      await closeDatabase();
+      console.log('✅ Database connections closed');
+    } catch (dbError) {
+      console.error('❌ Failed to close database:', dbError);
+    }
 
     console.log('\n✅ Graceful shutdown completed successfully');
 

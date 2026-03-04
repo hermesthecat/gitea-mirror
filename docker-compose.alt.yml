@@ -7,6 +7,7 @@ services:
     image: gitea-mirror:latest
     container_name: gitea-mirror
     restart: unless-stopped
+    stop_grace_period: 35s
     ports:
       - "${PORT:-4321}:4321"
     user: ${PUID:-1000}:${PGID:-1000}

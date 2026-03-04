@@ -35,7 +35,7 @@ RUN bun install --production --omit=peer --frozen-lockfile || (sleep 5 && bun in
 FROM oven/bun:1.3.9-debian AS runner
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  wget sqlite3 openssl ca-certificates \
+  wget sqlite3 openssl ca-certificates tini \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=pruner /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
@@ -65,4 +65,4 @@ EXPOSE 4321
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:4321/api/health || exit 1
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["tini", "--", "./docker-entrypoint.sh"]
