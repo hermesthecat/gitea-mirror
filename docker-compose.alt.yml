@@ -13,6 +13,8 @@ services:
     user: ${PUID:-1000}:${PGID:-1000}
     volumes:
       - ./docker-data:/app/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     environment:
       # === ABSOLUTELY REQUIRED ===
       # This MUST be set and CANNOT be changed via UI
